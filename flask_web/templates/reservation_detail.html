@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6 pb-20">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="/reservations" class="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                <i data-lucide="arrow-left" size="24"></i>
+            </a>
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold text-slate-900">예약 {{ reservation.id }}</h1>
+                    <span
+                        class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-800' if reservation.status == '예약확정' else ('bg-red-100 text-red-800' if reservation.status == '취소됨' else 'bg-yellow-100 text-yellow-800') }}">
+                        {{ reservation.status }}
+                    </span>
+                </div>
+                <p class="text-slate-500 text-sm">일본 프리미엄 골프 투어 (3박4일)</p>
+            </div>
+        </div>
+        <button
+            class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm shadow-primary-200 flex items-center gap-2">
+            <i data-lucide="save" size="18"></i>
+            변경사항 저장
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Customer & Booking Info -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Status & Penalty Section -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">예약 상태</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">현재 상태</label>
+                        <select
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500">
+                            <option value="입금대기" {{ 'selected' if reservation.status=='입금대기' }}>입금대기</option>
+                            <option value="예약확정" {{ 'selected' if reservation.status=='예약확정' }}>예약확정</option>
+                            <option value="취소됨" {{ 'selected' if reservation.status=='취소됨' }}>취소됨</option>
+                        </select>
+                    </div>
+
+                    <!-- Cancellation Penalty Input -->
+                    <div id="penaltySection" class="{{ 'hidden' if reservation.status != '취소됨' }}">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-red-600 flex items-center gap-1">
+                                <i data-lucide="alert-circle" size="14"></i>
+                                취소 위약금
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₩</span>
+                                <input type="number" placeholder="위약금 금액 입력"
+                                    class="w-full pl-8 pr-4 py-2 border-2 border-red-100 bg-red-50 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-red-900 font-medium placeholder-red-300" />
+                            </div>
+                            <p class="text-xs text-red-500">수동으로 계산된 위약금을 입력하세요.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer Info -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="user" size="20" class="text-slate-400"></i>
+                        고객 정보
+                    </h2>
+                    <button class="text-sm text-primary-600 font-medium hover:underline flex items-center gap-1">
+                        <i data-lucide="camera" size="16"></i> 여권 OCR 스캔
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">이름 (한글)</label>
+                        <input type="text" value="홍길동" class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">이름 (영문)</label>
+                        <input type="text" value="HONG GILDONG"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">전화번호</label>
+                        <div class="relative">
+                            <i data-lucide="phone" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                size="16"></i>
+                            <input type="text" value="010-1234-5678"
+                                class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg" />
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">여권번호</label>
+                        <input type="text" value="M12345678"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rooming List -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-900">룸 배정 (Rooming List)</h2>
+                    <button class="text-sm text-primary-600 font-medium hover:underline flex items-center gap-1">
+                        <i data-lucide="plus" size="16"></i> 룸 추가
+                    </button>
+                </div>
+
+                <div class="space-y-4" id="roomList">
+                    <div class="p-4 border border-slate-200 rounded-lg bg-slate-50 relative group">
+                        <button
+                            class="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i data-lucide="trash-2" size="16"></i>
+                        </button>
+                        <div class="flex items-center gap-4 mb-3">
+                            <span class="font-bold text-slate-700">Room 1</span>
+                            <select class="text-sm border border-slate-200 rounded px-2 py-1 bg-white">
+                                <option value="Twin">Twin</option>
+                                <option value="Single">Single</option>
+                                <option value="Double">Double</option>
+                                <option value="Triple">Triple</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <input type="text" value="홍길동"
+                                class="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm" />
+                            <input type="text" value="김철수"
+                                class="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: CRM Chat -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[600px] sticky top-6">
+                <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-xl">
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="message-square" size="18" class="text-slate-500"></i>
+                        상담 메모
+                    </h3>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chatMessages">
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">웹사이트를 통해 예약이
+                            생성되었습니다</span>
+                    </div>
+                    <div class="flex flex-col items-start">
+                        <div class="bg-blue-50 p-3 rounded-lg rounded-tl-none max-w-[90%]">
+                            <div class="flex items-center justify-between gap-2 mb-1">
+                                <span class="text-xs font-bold text-blue-700">김철수 (직원)</span>
+                                <span class="text-[10px] text-blue-400">2025-10-01 14:30</span>
+                            </div>
+                            <p class="text-sm text-slate-700">고객이 기내식 채식 요청하셨습니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 border-t border-slate-200">
+                    <form class="flex gap-2" onsubmit="event.preventDefault(); addMessage();">
+                        <input type="text" id="messageInput" placeholder="메모 입력..."
+                            class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                        <button type="submit"
+                            class="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                            <i data-lucide="send" size="18"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function addMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        const chatContainer = document.getElementById('chatMessages');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'flex flex-col items-start';
+        msgDiv.innerHTML = `
+            <div class="bg-blue-50 p-3 rounded-lg rounded-tl-none max-w-[90%]">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="text-xs font-bold text-blue-700">관리자</span>
+                    <span class="text-[10px] text-blue-400">${new Date().toLocaleString()}</span>
+                </div>
+                <p class="text-sm text-slate-700">${text}</p>
+            </div>
+        `;
+        chatContainer.appendChild(msgDiv);
+        input.value = '';
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+</script>
+{% endblock %}

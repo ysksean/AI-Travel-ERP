@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">견적 관리</h1>
+            <p class="text-slate-500 text-sm">고객에게 발송된 견적서를 관리합니다.</p>
+        </div>
+        <a href="/quotations/new"
+            class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
+            <i data-lucide="plus" size="18"></i>
+            견적서 작성
+        </a>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="relative flex-1">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="18"></i>
+            <input type="text" placeholder="견적번호, 고객명 검색..."
+                class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+        <button class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50">
+            <i data-lucide="filter" size="18"></i>
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">견적번호</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">고객명</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">상품명</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">견적금액</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">작성일</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">상태</th>
+                    <th class="px-6 py-4 text-right font-medium text-slate-500">관리</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for q in quotations %}
+                <tr onclick="window.location.href='/quotations/{{ q.id }}'"
+                    class="hover:bg-slate-50 transition-colors cursor-pointer">
+                    <td class="px-6 py-4 font-mono text-slate-500">{{ q.id }}</td>
+                    <td class="px-6 py-4 font-medium text-slate-900">{{ q.customer }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ q.product }}</td>
+                    <td class="px-6 py-4 font-semibold text-slate-900">₩{{ q.amount }}</td>
+                    <td class="px-6 py-4 text-slate-500">{{ q.date }}</td>
+                    <td class="px-6 py-4">
+                        <span
+                            class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-800' if q.status == '발송완료' else 'bg-yellow-100 text-yellow-800' }}">
+                            {{ q.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
+                        <button class="p-1.5 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600">
+                            <i data-lucide="more-horizontal" size="18"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

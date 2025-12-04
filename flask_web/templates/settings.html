@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Sidebar -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-fit">
+        <nav class="space-y-1">
+            <button onclick="switchTab('profile')" id="tab-profile"
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors bg-primary-50 text-primary-700">
+                <i data-lucide="user" size="18"></i>
+                프로필
+            </button>
+            <button onclick="switchTab('notifications')" id="tab-notifications"
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+                <i data-lucide="bell" size="18"></i>
+                알림
+            </button>
+            <button onclick="switchTab('security')" id="tab-security"
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+                <i data-lucide="lock" size="18"></i>
+                보안
+            </button>
+            <button onclick="switchTab('appearance')" id="tab-appearance"
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+                <i data-lucide="monitor" size="18"></i>
+                화면
+            </button>
+            <button onclick="switchTab('system')" id="tab-system"
+                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50">
+                <i data-lucide="hard-drive" size="18"></i>
+                시스템
+            </button>
+        </nav>
+    </div>
+
+    <!-- Content -->
+    <div class="lg:col-span-3 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <!-- Profile Tab -->
+        <div id="content-profile" class="space-y-6">
+            <h2 class="text-lg font-bold text-slate-900">프로필 설정</h2>
+            <div class="flex items-center gap-6">
+                <div
+                    class="w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-2xl">
+                    AD
+                </div>
+                <button class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">
+                    사진 변경
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">이름</label>
+                    <input type="text" value="관리자" class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">이메일</label>
+                    <input type="email" value="admin@travel.com"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">전화번호</label>
+                    <input type="text" value="010-0000-0000"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">부서</label>
+                    <select class="w-full px-3 py-2 border border-slate-200 rounded-lg">
+                        <option>영업팀</option>
+                        <option>수배팀</option>
+                        <option>관리팀</option>
+                    </select>
+                </div>
+            </div>
+            <button
+                class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium flex items-center gap-2">
+                <i data-lucide="save" size="18"></i>
+                저장
+            </button>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="content-notifications" class="space-y-6 hidden">
+            <h2 class="text-lg font-bold text-slate-900">알림 설정</h2>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-slate-900">새로운 예약 알림</p>
+                        <p class="text-sm text-slate-500 mt-1">웹사이트를 통해 예약이 들어오면 알림을 받습니다.</p>
+                    </div>
+                    <div class="w-11 h-6 bg-primary-600 rounded-full relative cursor-pointer">
+                        <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-slate-900">결제 알림</p>
+                        <p class="text-sm text-slate-500 mt-1">고객 결제가 완료되면 알림을 받습니다.</p>
+                    </div>
+                    <div class="w-11 h-6 bg-primary-600 rounded-full relative cursor-pointer">
+                        <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Tab -->
+        <div id="content-security" class="space-y-6 hidden">
+            <h2 class="text-lg font-bold text-slate-900">보안 설정</h2>
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">현재 비밀번호</label>
+                    <input type="password" class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">새 비밀번호</label>
+                    <input type="password" class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">비밀번호 확인</label>
+                    <input type="password" class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                </div>
+                <button class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium">
+                    비밀번호 변경
+                </button>
+            </div>
+        </div>
+
+        <!-- Appearance Tab -->
+        <div id="content-appearance" class="space-y-6 hidden">
+            <h2 class="text-lg font-bold text-slate-900">화면 설정</h2>
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">테마</label>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="p-4 border-2 border-primary-500 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <p class="text-center font-medium">라이트</p>
+                        </div>
+                        <div class="p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <p class="text-center font-medium">다크</p>
+                        </div>
+                        <div class="p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <p class="text-center font-medium">자동</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Tab -->
+        <div id="content-system" class="space-y-6 hidden">
+            <h2 class="text-lg font-bold text-slate-900">시스템 설정</h2>
+            <div class="space-y-4">
+                <div class="p-4 bg-slate-50 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium text-slate-900">버전</p>
+                            <p class="text-sm text-slate-500 mt-1">TravelERP v1.0.0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 bg-slate-50 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium text-slate-900">데이터 백업</p>
+                            <p class="text-sm text-slate-500 mt-1">마지막 백업: 2025-11-27</p>
+                        </div>
+                        <button class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium">
+                            백업 실행
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tabName) {
+        // Hide all contents
+        const contents = ['profile', 'notifications', 'security', 'appearance', 'system'];
+        contents.forEach(c => {
+            document.getElementById('content-' + c).classList.add('hidden');
+            const btn = document.getElementById('tab-' + c);
+            btn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50';
+        });
+
+        // Show selected content
+        document.getElementById('content-' + tabName).classList.remove('hidden');
+
+        // Activate selected tab
+        const activeBtn = document.getElementById('tab-' + tabName);
+        activeBtn.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors bg-primary-50 text-primary-700';
+    }
+</script>
+{% endblock %}

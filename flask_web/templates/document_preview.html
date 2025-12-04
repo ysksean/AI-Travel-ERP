@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6 pb-20">
+    <!-- Header -->
+    <div class="flex items-center justify-between print:hidden">
+        <div class="flex items-center gap-4">
+            <button onclick="history.back()"
+                class="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                <i data-lucide="arrow-left" size="24"></i>
+            </button>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">문서 미리보기</h1>
+                <p class="text-slate-500 text-sm">자동 생성된 문서를 확인하고 출력하거나 발송할 수 있습니다.</p>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="window.print()"
+                class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2">
+                <i data-lucide="printer" size="18"></i>
+                인쇄
+            </button>
+            <button
+                class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2">
+                <i data-lucide="download" size="18"></i>
+                PDF 다운로드
+            </button>
+            <button
+                class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm flex items-center gap-2">
+                <i data-lucide="mail" size="18"></i>
+                이메일 발송
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-slate-200 print:hidden">
+        <button onclick="switchDoc('invoice')" id="tab-invoice"
+            class="px-6 py-3 text-sm font-medium border-b-2 transition-colors border-primary-600 text-primary-600">
+            인보이스 (청구서)
+        </button>
+        <button onclick="switchDoc('quotation')" id="tab-quotation"
+            class="px-6 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700">
+            견적서 (고객용)
+        </button>
+        <button onclick="switchDoc('land-request')" id="tab-land-request"
+            class="px-6 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700">
+            수배 요청서 (랜드사)
+        </button>
+    </div>
+
+    <!-- Document Preview Area -->
+    <div class="bg-white shadow-lg p-12 min-h-[800px] print:shadow-none print:p-0">
+        <!-- Invoice Template -->
+        <div id="doc-invoice" class="space-y-8">
+            <div class="flex justify-between items-start border-b border-slate-200 pb-8">
+                <div>
+                    <h1 class="text-4xl font-bold text-slate-900">INVOICE</h1>
+                    <p class="text-slate-500 mt-2">청구서 번호: #INV-2024-001</p>
+                    <p class="text-slate-500">발행일: 2024. 03. 21</p>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-xl font-bold text-slate-900">트래블 에이전시</h2>
+                    <p class="text-slate-500 text-sm mt-1">서울시 강남구 테헤란로 123</p>
+                    <p class="text-slate-500 text-sm">Tel: 02-1234-5678</p>
+                    <p class="text-slate-500 text-sm">Email: accounting@travel.com</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-12">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-400 uppercase mb-2">Bill To</h3>
+                    <p class="font-bold text-slate-900 text-lg">김철수 고객님</p>
+                    <p class="text-slate-600">010-1234-5678</p>
+                    <p class="text-slate-600">kim@example.com</p>
+                </div>
+                <div class="text-right">
+                    <h3 class="text-sm font-bold text-slate-400 uppercase mb-2">Total Amount</h3>
+                    <p class="font-bold text-primary-600 text-3xl">₩2,700,000</p>
+                    <p class="text-slate-500 text-sm mt-1">납부 기한: 2024. 03. 28</p>
+                </div>
+            </div>
+
+            <table class="w-full mt-8">
+                <thead class="bg-slate-50 border-y border-slate-200">
+                    <tr>
+                        <th class="py-3 text-left font-medium text-slate-500">내역</th>
+                        <th class="py-3 text-center font-medium text-slate-500">수량</th>
+                        <th class="py-3 text-right font-medium text-slate-500">단가</th>
+                        <th class="py-3 text-right font-medium text-slate-500">금액</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <tr>
+                        <td class="py-4 font-medium text-slate-900">일본 프리미엄 골프 투어 (성인)</td>
+                        <td class="py-4 text-center text-slate-600">2</td>
+                        <td class="py-4 text-right text-slate-600">₩1,200,000</td>
+                        <td class="py-4 text-right font-medium text-slate-900">₩2,400,000</td>
+                    </tr>
+                    <tr>
+                        <td class="py-4 font-medium text-slate-900">유류할증료</td>
+                        <td class="py-4 text-center text-slate-600">2</td>
+                        <td class="py-4 text-right text-slate-600">₩150,000</td>
+                        <td class="py-4 text-right font-medium text-slate-900">₩300,000</td>
+                    </tr>
+                </tbody>
+                <tfoot class="border-t border-slate-200">
+                    <tr>
+                        <td colspan="3" class="py-4 text-right font-bold text-slate-900">합계</td>
+                        <td class="py-4 text-right font-bold text-slate-900">₩2,700,000</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="bg-slate-50 p-6 rounded-lg mt-8">
+                <h3 class="font-bold text-slate-900 mb-2">입금 계좌 안내</h3>
+                <p class="text-slate-600">신한은행 110-123-456789 (예금주: 트래블에이전시)</p>
+            </div>
+        </div>
+
+        <!-- Quotation Template -->
+        <div id="doc-quotation" class="space-y-8 hidden">
+            <div class="text-center border-b border-slate-200 pb-8">
+                <h1 class="text-3xl font-bold text-slate-900">여행 견적서</h1>
+                <p class="text-slate-500 mt-2">Quotation for Travel Services</p>
+            </div>
+            <div class="text-center py-20 text-slate-400">
+                <i data-lucide="file-text" size="48" class="mx-auto mb-4 opacity-50"></i>
+                <p>견적서 양식이 여기에 표시됩니다.</p>
+            </div>
+        </div>
+
+        <!-- Land Request Template -->
+        <div id="doc-land-request" class="space-y-8 hidden">
+            <div class="border-b border-slate-200 pb-8">
+                <h1 class="text-3xl font-bold text-slate-900">수배 요청서</h1>
+                <p class="text-slate-500 mt-2">Land Operator Request Form</p>
+            </div>
+            <div class="text-center py-20 text-slate-400">
+                <i data-lucide="file-text" size="48" class="mx-auto mb-4 opacity-50"></i>
+                <p>수배 요청서 양식이 여기에 표시됩니다.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchDoc(docName) {
+        // Hide all docs
+        const docs = ['invoice', 'quotation', 'land-request'];
+        docs.forEach(d => {
+            document.getElementById('doc-' + d).classList.add('hidden');
+            const btn = document.getElementById('tab-' + d);
+            btn.className = 'px-6 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-slate-500 hover:text-slate-700';
+        });
+
+        // Show selected doc
+        document.getElementById('doc-' + docName).classList.remove('hidden');
+
+        // Activate selected tab
+        const activeBtn = document.getElementById('tab-' + docName);
+        activeBtn.className = 'px-6 py-3 text-sm font-medium border-b-2 transition-colors border-primary-600 text-primary-600';
+    }
+</script>
+{% endblock %}

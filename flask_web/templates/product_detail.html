@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="/products" class="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                <i data-lucide="arrow-left" size="24"></i>
+            </a>
+            <div>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold text-slate-900">{{ product.name }}</h1>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {{ product.status }}
+                    </span>
+                </div>
+                <p class="text-slate-500 text-sm">{{ product.id }} | {{ product.region }}</p>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
+                복사
+            </button>
+            <button
+                class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm flex items-center gap-2">
+                <i data-lucide="save" size="18"></i>
+                저장
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Product Details -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Basic Info -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">기본 정보</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">상품명</label>
+                        <input type="text" value="{{ product.name }}"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">행사 기간</label>
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="calendar" size="18" class="text-slate-400"></i>
+                            <input type="text" value="{{ product.period }}"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-lg" />
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">상품가</label>
+                        <input type="text" value="{{ product.price }}"
+                            class="w-full px-3 py-2 border border-slate-200 rounded-lg text-right" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">담당자</label>
+                        <select class="w-full px-3 py-2 border border-slate-200 rounded-lg">
+                            <option>{{ product.manager }}</option>
+                            <option>이영희</option>
+                            <option>박지민</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Itinerary -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-4">일정표</h2>
+                <div class="space-y-6">
+                    {% for day in itinerary %}
+                    <div class="flex gap-4">
+                        <div class="flex flex-col items-center">
+                            <div
+                                class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm">
+                                {{ day.day }}
+                            </div>
+                            <div class="w-0.5 h-full bg-slate-100 my-2"></div>
+                        </div>
+                        <div class="flex-1 pb-6">
+                            <h3 class="font-bold text-slate-900 mb-2">{{ day.title }}</h3>
+                            <div class="bg-slate-50 rounded-lg p-4 space-y-2">
+                                {% for activity in day.activities %}
+                                <div class="flex items-center gap-2 text-sm text-slate-600">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                                    {{ activity }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Flight & Hotel -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="plane" size="20" class="text-slate-400"></i>
+                    항공 정보
+                </h2>
+                <div class="space-y-4">
+                    {% for flight in product.flights %}
+                    <div class="p-3 border border-slate-200 rounded-lg bg-slate-50">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-500">{{ '출국' if flight.type == 'departure' else
+                                '귀국' }}</span>
+                            <span class="text-xs font-bold text-slate-900">{{ flight.airline }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-mono text-slate-900">{{ flight.flightNo }}</span>
+                            <span class="text-sm text-slate-600">{{ flight.time }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <i data-lucide="hotel" size="20" class="text-slate-400"></i>
+                    호텔 정보
+                </h2>
+                <div class="p-3 border border-slate-200 rounded-lg bg-slate-50">
+                    <h3 class="font-bold text-slate-900">노보텔 다낭 프리미어 한 리버</h3>
+                    <p class="text-sm text-slate-500 mt-1">Novotel Danang Premier Han River</p>
+                    <div class="mt-3 flex gap-2">
+                        <span class="px-2 py-1 bg-white rounded text-xs border border-slate-200">5성급</span>
+                        <span class="px-2 py-1 bg-white rounded text-xs border border-slate-200">조식포함</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

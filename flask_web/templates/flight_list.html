@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">항공권 관리</h1>
+            <p class="text-slate-500 text-sm mt-1">항공권 예약 및 발권 상태를 관리합니다.</p>
+        </div>
+        <button
+            class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm shadow-primary-200">
+            <i data-lucide="plus" size="18"></i>
+            항공권 검색
+        </button>
+    </div>
+
+    <!-- AI Search Section -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i data-lucide="plane" class="text-blue-600" size="24"></i>
+            </div>
+            <div class="flex-1">
+                <h3 class="font-bold text-slate-900 mb-2">AI 항공권 검색</h3>
+                <p class="text-sm text-slate-600 mb-4">출발지, 도착지, 날짜를 입력하면 AI가 최적의 항공권을 찾아드립니다.</p>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <input type="text" placeholder="출발지 (예: ICN)"
+                        class="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                    <input type="text" placeholder="도착지 (예: NRT)"
+                        class="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                    <input type="date" class="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        검색
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="relative flex-1">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="18"></i>
+            <input type="text" placeholder="항공편명, 항공사 검색..."
+                class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+        <select class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option>전체 상태</option>
+            <option>예약완료</option>
+            <option>발권대기</option>
+            <option>취소됨</option>
+        </select>
+    </div>
+
+    <!-- Flight List -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">항공편</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">항공사</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">노선</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">출발</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">도착</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">인원</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">상태</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for flight in flights %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-mono text-slate-500">{{ flight.id }}</td>
+                    <td class="px-6 py-4 font-medium text-slate-900">{{ flight.airline }}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2 text-slate-600">
+                            <i data-lucide="map-pin" size="14"></i>
+                            {{ flight.route }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-slate-600">{{ flight.departure }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ flight.arrival }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ flight.pax }}명</td>
+                    <td class="px-6 py-4">
+                        <span
+                            class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-800' if flight.status == '예약완료' else ('bg-yellow-100 text-yellow-800' if flight.status == '발권대기' else 'bg-red-100 text-red-800') }}">
+                            {{ flight.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

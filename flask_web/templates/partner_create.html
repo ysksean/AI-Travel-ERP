@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="/partners" class="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                <i data-lucide="arrow-left" size="24"></i>
+            </a>
+            <h1 class="text-2xl font-bold text-slate-900">파트너 등록</h1>
+        </div>
+        <button
+            class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm flex items-center gap-2">
+            <i data-lucide="save" size="18"></i>
+            저장
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="building" size="20" class="text-slate-400"></i>
+            업체 정보
+        </h2>
+        <div class="grid grid-cols-1 gap-6">
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-slate-700">업체명</label>
+                <input type="text" class="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                    placeholder="업체 이름을 입력하세요" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">지역</label>
+                    <div class="relative">
+                        <i data-lucide="map-pin" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                            size="18"></i>
+                        <select
+                            class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg appearance-none bg-white">
+                            <option>지역 선택</option>
+                            <option>다낭</option>
+                            <option>나트랑</option>
+                            <option>푸꾸옥</option>
+                            <option>방콕</option>
+                            <option>오사카</option>
+                            <option>도쿄</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">유형</label>
+                    <select class="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">
+                        <option>랜드사</option>
+                        <option>가이드</option>
+                        <option>운송업체</option>
+                        <option>기타</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-slate-700">주소</label>
+                <input type="text" class="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                    placeholder="상세 주소를 입력하세요" />
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-slate-700">웹사이트</label>
+                <div class="relative">
+                    <i data-lucide="globe" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        size="18"></i>
+                    <input type="text" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg"
+                        placeholder="https://" />
+                </div>
+            </div>
+        </div>
+
+        <div class="border-t border-slate-100 pt-6">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-6">
+                <i data-lucide="user" size="20" class="text-slate-400"></i>
+                담당자 정보
+            </h2>
+            <div class="grid grid-cols-1 gap-6">
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">담당자명</label>
+                        <input type="text" class="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            placeholder="이름" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">직급</label>
+                        <input type="text" class="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            placeholder="직급" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">연락처</label>
+                        <div class="relative">
+                            <i data-lucide="phone" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                size="18"></i>
+                            <input type="text" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg"
+                                placeholder="전화번호" />
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">이메일</label>
+                        <div class="relative">
+                            <i data-lucide="mail" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                size="18"></i>
+                            <input type="email" class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg"
+                                placeholder="example@email.com" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-700">메모</label>
+                    <textarea class="w-full px-3 py-2 border border-slate-200 rounded-lg h-24 resize-none"
+                        placeholder="참고사항을 입력하세요"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

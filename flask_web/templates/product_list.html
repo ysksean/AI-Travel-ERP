@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">상품 관리</h1>
+            <p class="text-slate-500 text-sm mt-1">여행 상품 및 일정표를 관리합니다.</p>
+        </div>
+        <a href="/products/new"
+            class="inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm shadow-primary-200">
+            <i data-lucide="plus" size="18"></i>
+            상품 등록
+        </a>
+    </div>
+
+    <!-- Filters & Search -->
+    <div
+        class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-80">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="18"></i>
+                <input type="text" placeholder="상품코드 또는 상품명 검색..."
+                    class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all" />
+            </div>
+            <button class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600">
+                <i data-lucide="filter" size="18"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-3 text-sm">
+            <select
+                class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option>전체 담당자</option>
+                <option>김철수</option>
+                <option>이영희</option>
+            </select>
+            <select
+                class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option>전체 지역</option>
+                <option>일본</option>
+                <option>동남아</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Product Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-4 w-10">
+                            <input type="checkbox"
+                                class="rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+                        </th>
+                        <th class="px-6 py-4">상태</th>
+                        <th class="px-6 py-4">상품코드</th>
+                        <th class="px-6 py-4">상품명</th>
+                        <th class="px-6 py-4">행사기간</th>
+                        <th class="px-6 py-4">담당자</th>
+                        <th class="px-6 py-4 text-right">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for product in products %}
+                    <tr onclick="window.location.href='/products/{{ product.id }}'"
+                        class="hover:bg-slate-50 transition-colors group cursor-pointer">
+                        <td class="px-6 py-4" onclick="event.stopPropagation()">
+                            <input type="checkbox"
+                                class="rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+                        </td>
+                        <td class="px-6 py-4">
+                            <span
+                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-blue-50 text-blue-700' if product.status == '판매중' else 'bg-slate-100 text-slate-600' }}">
+                                {{ product.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono text-slate-500">{{ product.id }}</td>
+                        <td class="px-6 py-4 font-medium text-slate-900">
+                            <div class="flex items-center gap-2">
+                                {{ product.name }}
+                                {% if product.region == '일본' %}
+                                <span class="text-xs bg-red-50 text-red-600 px-1.5 rounded">JP</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-slate-500">
+                            <div class="flex items-center gap-1.5">
+                                <i data-lucide="calendar" size="14"></i>
+                                {{ product.period }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                    {{ product.manager[0] }}
+                                </div>
+                                <span class="text-slate-600">{{ product.manager }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
+                            <button
+                                class="p-1.5 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                                <i data-lucide="more-horizontal" size="18"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-sm text-slate-500">
+            <span>총 {{ products|length }}개 중 1-4 표시</span>
+            <div class="flex gap-1">
+                <button
+                    class="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50">이전</button>
+                <button
+                    class="px-3 py-1 bg-primary-50 text-primary-700 border border-primary-100 rounded font-medium">1</button>
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50">2</button>
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50">다음</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

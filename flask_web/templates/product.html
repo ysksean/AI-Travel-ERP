@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Product Analysis</h2>
+    <div class="card">
+        <div class="card-body">
+            <form id="productForm">
+                <div class="mb-3">
+                    <label for="productText" class="form-label">Product Description / Text</label>
+                    <textarea class="form-control" id="productText" rows="5"
+                        placeholder="Enter product details to extract entities..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Analyze</button>
+            </form>
+            <div id="result" class="mt-4" style="display:none;">
+                <h4>Analysis Result:</h4>
+                <pre id="resultContent" class="bg-light p-3 border rounded"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = document.getElementById('productText').value;
+        const response = await fetch('/api/product/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text })
+        });
+        const data = await response.json();
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('resultContent').textContent = JSON.stringify(data, null, 2);
+    });
+</script>
+{% endblock %}

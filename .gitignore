@@ -1,0 +1,21 @@
+# Node
+node_modules/
+dist/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+flask_web/venv/
+flask_web/models/*.keras
+flask_web/models/*.pkl
+
+# IDE
+.vscode/
+.idea/
+.gemini/
