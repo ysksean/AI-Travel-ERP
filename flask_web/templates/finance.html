@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">정산 관리 (Finance)</h1>
+            <p class="text-slate-500 text-sm mt-1">입출금 내역 및 미수금을 관리합니다.</p>
+        </div>
+        <div class="flex gap-3">
+            <button
+                class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2">
+                <i data-lucide="download" size="18"></i>
+                엑셀 다운로드
+            </button>
+            <button
+                class="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm flex items-center gap-2">
+                <i data-lucide="plus" size="18"></i>
+                내역 수기 등록
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <p class="text-slate-500 text-sm">이번 달 입금</p>
+            <h3 class="text-2xl font-bold text-blue-600 mt-2">₩15,400,000</h3>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <p class="text-slate-500 text-sm">이번 달 출금</p>
+            <h3 class="text-2xl font-bold text-red-600 mt-2">₩8,200,000</h3>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <p class="text-slate-500 text-sm">현재 미수금</p>
+            <h3 class="text-2xl font-bold text-amber-600 mt-2">₩2,500,000</h3>
+        </div>
+    </div>
+
+    <!-- Transaction List -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex items-center gap-4">
+            <div class="relative flex-1">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="18"></i>
+                <input type="text" placeholder="입금자명, 금액 검색..."
+                    class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <select class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                <option>전체 내역</option>
+                <option>입금</option>
+                <option>출금</option>
+            </select>
+        </div>
+
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">날짜</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">구분</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">내용/입금자</th>
+                    <th class="px-6 py-4 text-right font-medium text-slate-500">금액</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">관련 예약</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">상태</th>
+                    <th class="px-6 py-4 text-right font-medium text-slate-500">증빙</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for t in transactions %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 text-slate-500">{{ t.date }}</td>
+                    <td class="px-6 py-4">
+                        <span
+                            class="px-2 py-0.5 rounded text-xs font-medium {{ 'bg-blue-100 text-blue-700' if t.type == '입금' else 'bg-red-100 text-red-700' }}">
+                            {{ t.type }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 font-medium text-slate-900">{{ t.sender }}</td>
+                    <td
+                        class="px-6 py-4 text-right font-mono font-medium {{ 'text-blue-600' if t.type == '입금' else 'text-red-600' }}">
+                        {{ '+' if t.amount > 0 else '' }}{{ t.amount }}
+                    </td>
+                    <td class="px-6 py-4 text-slate-500 text-xs">{{ t.related }}</td>
+                    <td class="px-6 py-4">
+                        {% if t.status == '확인완료' or t.status == '지급완료' %}
+                        <div class="flex items-center gap-1 text-green-600 text-xs font-medium">
+                            <i data-lucide="check-circle" size="14"></i> {{ t.status }}
+                        </div>
+                        {% else %}
+                        <div class="flex items-center gap-1 text-amber-600 text-xs font-medium">
+                            <i data-lucide="alert-circle" size="14"></i> {{ t.status }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button class="text-slate-400 hover:text-slate-600">
+                            <i data-lucide="file-text" size="18"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

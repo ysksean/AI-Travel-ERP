@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">결제 관리</h1>
+            <p class="text-slate-500 text-sm mt-1">결제 내역을 확인하고 관리하세요.</p>
+        </div>
+        <button
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-sm shadow-primary-200">
+            <i data-lucide="credit-card" size="18"></i>
+            결제 요청
+        </button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-slate-500 text-sm">총 결제금액</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-2">₩7,500,000</h3>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="credit-card" class="text-blue-600" size="24"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-slate-500 text-sm">완료된 결제</p>
+                    <h3 class="text-2xl font-bold text-green-600 mt-2">1건</h3>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="check-circle" class="text-green-600" size="24"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-slate-500 text-sm">대기중</p>
+                    <h3 class="text-2xl font-bold text-yellow-600 mt-2">1건</h3>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <i data-lucide="clock" class="text-yellow-600" size="24"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 mb-6">
+        <div class="relative flex-1">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="18"></i>
+            <input type="text" placeholder="결제번호, 고객명 검색..."
+                class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+        <select class="px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option>전체 상태</option>
+            <option>완료</option>
+            <option>대기중</option>
+            <option>실패</option>
+        </select>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">결제번호</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">고객명</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">결제금액</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">결제수단</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">결제일</th>
+                    <th class="px-6 py-4 text-left font-medium text-slate-500">상태</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for p in payments %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-mono text-slate-500">{{ p.id }}</td>
+                    <td class="px-6 py-4 font-medium text-slate-900">{{ p.customer }}</td>
+                    <td class="px-6 py-4 font-semibold text-slate-900">₩{{ p.amount }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ p.method }}</td>
+                    <td class="px-6 py-4 text-slate-500">{{ p.date }}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            {% if p.status == '완료' %}
+                            <i data-lucide="check-circle" size="14" class="text-green-600"></i>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                {{ p.status }}
+                            </span>
+                            {% elif p.status == '대기중' %}
+                            <i data-lucide="clock" size="14" class="text-yellow-600"></i>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                {{ p.status }}
+                            </span>
+                            {% else %}
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                {{ p.status }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
