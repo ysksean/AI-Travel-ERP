@@ -19,3 +19,11 @@ flask_web/models/*.pkl
 .vscode/
 .idea/
 .gemini/
+
+# Temporary Excel files
+~$*
+*.tmp
+
+# Large files
+flask_web/models/
+models/

@@ -1,13 +1,18 @@
 import os
-import pickle
-import logging
-import numpy as np
-# import tensorflow as tf # Commented out to avoid import errors if env is not set up, but logic remains
-# from tensorflow import keras
+import torch
+from transformers import AutoTokenizer, ElectraForTokenClassification
+from services.parsing_service import parsing_manager
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+LABEL_LIST = [
+    "O",
+    "B-HOTEL_NAME", "I-HOTEL_NAME", "B-HOTEL_GRADE", "I-HOTEL_GRADE", "B-HOTEL_LOC", "I-HOTEL_LOC",
+    "B-GOLF_NAME", "I-GOLF_NAME", "B-GOLF_OP", "I-GOLF_OP",
+    "B-FLIGHT_NAME", "I-FLIGHT_NAME", "B-FLIGHT_NUM", "I-FLIGHT_NUM", "B-DEPART_TIME", "I-DEPART_TIME",
+    "B-PRICE", "I-PRICE", "B-INCLUSION", "I-INCLUSION", "B-EXCLUSION", "I-EXCLUSION",
+    "B-REFUND", "I-REFUND", "B-DATE", "I-DATE", "B-CITY", "I-CITY", "B-NOTE", "I-NOTE"
+]
+ID2LABEL = {i: label for i, label in enumerate(LABEL_LIST)}
+
 
 class AIService:
     _instance = None
@@ -19,112 +24,134 @@ class AIService:
         return cls._instance
 
     def __init__(self):
-        if self._initialized:
-            return
-        
-        # Define model paths relative to this file
-        # flask_web/services/ai_service.py -> flask_web/models
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.model_dir = os.path.join(base_dir, 'models')
-        
-        self.models = {
-            'ner': None,
-            'sentiment': None,
-            'summarizer': None,
-            'forecaster': None,
-            'tokenizer': None
-        }
-        
+        if self._initialized: return
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.model_dir = os.environ.get('MODEL_DIR', os.path.join(self.base_dir, '../models'))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.models = {}
+        self.tokenizer = None
+        self.load_resources()
         self._initialized = True
-        logger.info(f"AIService initialized. Model directory: {self.model_dir}")
 
-    def _load_keras_model(self, filename):
-        """Helper to load Keras models with error handling"""
+    def load_resources(self):
+        print(f"🚀 AI 서비스 로딩 (Device: {self.device})")
         try:
-            import tensorflow as tf
-            from tensorflow import keras
-            path = os.path.join(self.model_dir, filename)
-            if os.path.exists(path):
-                logger.info(f"Loading model: {filename}")
-                return keras.models.load_model(path)
+            tok_path = os.path.join(self.model_dir, 'tokenizer')
+            if os.path.exists(tok_path):
+                self.tokenizer = AutoTokenizer.from_pretrained(tok_path)
             else:
-                logger.warning(f"Model file not found: {path}")
-                return None
-        except Exception as e:
-            logger.error(f"Failed to load model {filename}: {str(e)}")
-            return None
+                self.tokenizer = AutoTokenizer.from_pretrained("monologg/koelectra-base-v3-discriminator")
 
-    def _load_pickle(self, filename):
-        """Helper to load Pickle files with error handling"""
-        try:
-            path = os.path.join(self.model_dir, filename)
-            if os.path.exists(path):
-                logger.info(f"Loading pickle: {filename}")
-                with open(path, 'rb') as f:
-                    return pickle.load(f)
+            m1_path = os.path.join(self.model_dir, 'koelectra_ner')
+            if os.path.exists(m1_path):
+                self.models['ner'] = ElectraForTokenClassification.from_pretrained(m1_path).to(self.device)
+                self.models['ner'].eval()
+                print("  ✅ [M1] 고도화된 NER 모델 로드 완료")
             else:
-                logger.warning(f"Pickle file not found: {path}")
-                return None
+                print(f"  ⚠️ 모델 없음: {m1_path}")
         except Exception as e:
-            logger.error(f"Failed to load pickle {filename}: {str(e)}")
-            return None
+            print(f"❌ 로딩 에러: {e}")
 
-    def get_model(self, model_name):
-        """Lazy loader for models"""
-        if model_name not in self.models:
-            raise ValueError(f"Unknown model name: {model_name}")
+    def extract_quotation_info(self, file_path):
+        raw_text = parsing_manager.parse_file(file_path)
+        if not raw_text: return {"status": "error", "message": "텍스트 추출 실패"}
+        if 'ner' not in self.models: return {"status": "warning", "raw_text": raw_text[:200]}
 
-        if self.models[model_name] is None:
-            if model_name == 'ner':
-                self.models['ner'] = self._load_keras_model('ner_bilstm.keras')
-            elif model_name == 'sentiment':
-                self.models['sentiment'] = self._load_keras_model('sentiment_lstm.keras')
-            elif model_name == 'summarizer':
-                self.models['summarizer'] = self._load_keras_model('summarizer_seq2seq.keras')
-            elif model_name == 'forecaster':
-                self.models['forecaster'] = self._load_keras_model('forecaster_lstm.keras')
-            elif model_name == 'tokenizer':
-                self.models['tokenizer'] = self._load_pickle('tokenizer.pkl')
-        
-        return self.models[model_name]
+        # AI 추론
+        extracted_tags = self._run_ner_inference(raw_text)
+        # 폼 매핑
+        form_data = self._map_to_form(extracted_tags)
 
-    def extract_entities(self, text):
-        """M1: NER - Extract Hotel, Price, Date"""
-        model = self.get_model('ner')
-        tokenizer = self.get_model('tokenizer')
-        
-        if not model or not tokenizer:
-            return {"error": "NER model or tokenizer not available"}
-        
-        # Mock inference logic
-        return {"entities": [{"text": "Sample Hotel", "label": "HOTEL"}]}
+        return {
+            "status": "success",
+            "file_name": os.path.basename(file_path),
+            "data": form_data,
+            "raw_data": extracted_tags
+        }
 
-    def analyze_sentiment(self, text):
-        """M2: Sentiment Analysis"""
-        model = self.get_model('sentiment')
-        if not model:
-            return {"error": "Sentiment model not available"}
-        
-        # Mock inference logic
-        return {"sentiment": "positive", "score": 0.95}
+    def _run_ner_inference(self, text):
+        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(self.device)
+        with torch.no_grad():
+            outputs = self.models['ner'](**inputs)
+            predictions = torch.argmax(outputs.logits, dim=2)
 
-    def summarize_request(self, text):
-        """M3: Summarizer"""
-        model = self.get_model('summarizer')
-        if not model:
-            return {"error": "Summarizer model not available"}
-        
-        # Mock inference logic
-        return {"summary": "Customer requested a quote for Japan trip."}
+        tokens = self.tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
+        preds = predictions[0].cpu().numpy()
 
-    def forecast_price(self, date_range):
-        """M4: Price Forecasting"""
-        model = self.get_model('forecaster')
-        if not model:
-            return {"error": "Forecaster model not available"}
-        
-        # Mock inference logic
-        return {"forecast": 150000}
+        results = {}
+        current_entity = None
+        current_word = ""
 
-# Singleton instance
-ai_service = AIService()
+        for token, pred_idx in zip(tokens, preds):
+            if token in ["[CLS]", "[SEP]", "[PAD]"]: continue
+            label = ID2LABEL.get(pred_idx, 'O')
+            clean_token = token.replace("##", "")
+
+            if label.startswith("B-"):
+                if current_entity: results.setdefault(current_entity, []).append(current_word)
+                current_entity = label.split("-")[1]
+                current_word = clean_token
+            elif label.startswith("I-") and current_entity == label.split("-")[1]:
+                current_word += clean_token
+            else:
+                if current_entity:
+                    results.setdefault(current_entity, []).append(current_word)
+                    current_entity = None
+                    current_word = ""
+        if current_entity: results.setdefault(current_entity, []).append(current_word)
+        return results
+
+    def _map_to_form(self, tags):
+        """ [매핑 엔진] 추출된 태그를 ERP 폼 구조에 정확히 배치 """
+        form = {
+            "basic_info": {"product_type": "overseas", "is_flight_included": True, "is_vat_included": True},
+            "location_info": {"country": "", "city": "", "departure_port": "ICN"},
+            "product_info": {"product_name": "", "itinerary_id": None,
+                             "event_period": {"start_date": "", "end_date": "", "available_days": []}},
+            "hotels": [{"name_kr": "", "name_en": "", "location": "", "grade": "", "images": [], "description": "",
+                        "facilities": [],
+                        "meta_info": {"check_in_out": "", "distance_from_city": "", "website": "", "phone": "",
+                                      "notice": "", "extra_info": ""}}],
+            "golf_courses": [{"name_kr": "", "name_local": "", "images": [], "location": "", "operation_info": "",
+                              "meta_info": {"website": "", "phone": "", "detail_info": ""}}],
+            "tourist_spots": [],
+            "policies": {"safety_rules": "", "cancellation_refund": ""},
+            "details": {"inclusions": [], "exclusions": [], "others": "", "is_insurance_included": False,
+                        "is_guide_included": True, "special_notes": [], "references": "", "key_points": []},
+            "ai_content": {"body_text": "", "detailed_description": ""},
+            "flight_info": {"airline": "", "flight_number": "", "departure_time": "", "arrival_time": ""},
+            "images": {"thumbnail": "", "body_images": []}
+        }
+
+        # 1. 지역 및 호텔
+        if tags.get("CITY"): form["location_info"]["city"] = tags["CITY"][0]
+        if tags.get("HOTEL_NAME"):
+            form["hotels"][0]["name_kr"] = tags["HOTEL_NAME"][0]
+            form["product_info"]["product_name"] = f"{tags['HOTEL_NAME'][0]} 프리미엄 패키지"
+        if tags.get("HOTEL_GRADE"): form["hotels"][0]["grade"] = tags["HOTEL_GRADE"][0]
+        if tags.get("HOTEL_LOC"): form["hotels"][0]["location"] = tags["HOTEL_LOC"][0]
+
+        # 2. 골프장
+        if tags.get("GOLF_NAME"): form["golf_courses"][0]["name_kr"] = tags["GOLF_NAME"][0]
+        if tags.get("GOLF_OP"): form["golf_courses"][0]["operation_info"] = ", ".join(tags["GOLF_OP"])
+
+        # 3. 항공
+        if tags.get("FLIGHT_NAME"): form["flight_info"]["airline"] = tags["FLIGHT_NAME"][0]
+        if tags.get("FLIGHT_NUM"): form["flight_info"]["flight_number"] = tags["FLIGHT_NUM"][0]
+        if tags.get("DEPART_TIME"): form["flight_info"]["departure_time"] = tags["DEPART_TIME"][0]
+
+        # 4. 기타 정보
+        if tags.get("DATE"): form["product_info"]["event_period"]["start_date"] = tags["DATE"][0]
+        if tags.get("INCLUSION"): form["details"]["inclusions"] = tags["INCLUSION"]
+        if tags.get("EXCLUSION"): form["details"]["exclusions"] = tags["EXCLUSION"]
+        if tags.get("REFUND"): form["policies"]["cancellation_refund"] = " ".join(tags["REFUND"])
+
+        # 5. 가격 (별도 필드 없으면 기타란에)
+        if tags.get("PRICE"):
+            price_txt = ", ".join(tags["PRICE"])
+            form["details"]["others"] = f"추출 가격: {price_txt}"
+
+        return form
+
+
+ai_manager = AIService()

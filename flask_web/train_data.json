@@ -1,0 +1,22 @@
+[
+  {
+    "text": "다낭 하얏트 리젠시 5성급 3박 5일 견적",
+    "labels": ["B-CITY", "B-HOTEL_NAME", "I-HOTEL_NAME", "I-HOTEL_NAME", "B-HOTEL_GRADE", "O", "O", "O", "O"]
+  },
+  {
+    "text": "대한항공 KE463편 이용, 09:00 출발",
+    "labels": ["B-FLIGHT_NAME", "B-FLIGHT_NUM", "O", "O", "B-DEPART_TIME", "O"]
+  },
+  {
+    "text": "포함사항: 그린피, 카트비, 조식. 불포함: 캐디피",
+    "labels": ["O", "B-INCLUSION", "O", "B-INCLUSION", "O", "B-INCLUSION", "O", "O", "B-EXCLUSION"]
+  },
+  {
+    "text": "취소는 출발 7일 전까지 가능합니다.",
+    "labels": ["B-REFUND", "I-REFUND", "I-REFUND", "I-REFUND", "I-REFUND", "I-REFUND"]
+  },
+  {
+    "text": "레가시 골프장 18홀 라운딩",
+    "labels": ["B-GOLF_NAME", "I-GOLF_NAME", "O", "B-GOLF_OP"]
+  }
+]
