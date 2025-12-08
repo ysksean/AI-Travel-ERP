@@ -1,0 +1,117 @@
+<!-- Floating Chat Widget -->
+<div id="chat-widget" class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+
+    <!-- Chat Window (Hidden by default) -->
+    <div id="chat-window"
+        class="hidden bg-white w-96 h-[500px] rounded-2xl shadow-2xl border border-gray-100 mb-4 flex flex-col overflow-hidden transition-all duration-300 transform origin-bottom-right scale-95 opacity-0">
+        <!-- Header -->
+        <div
+            class="bg-gradient-to-r from-sky-500 to-blue-600 text-white p-5 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                    <i class="fa-solid fa-headset text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg">고객센터</h3>
+                    <p class="text-xs text-sky-100 opacity-90">보통 1분 내 응답</p>
+                </div>
+            </div>
+            <button id="close-chat"
+                class="text-white hover:text-gray-200 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:bg-opacity-10">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-4">
+            <!-- Bot Message -->
+            <div class="flex gap-3">
+                <div
+                    class="w-8 h-8 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 flex-shrink-0 mt-1">
+                    <i class="fa-solid fa-robot text-sm"></i>
+                </div>
+                <div class="flex flex-col gap-1 max-w-[80%]">
+                    <div
+                        class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800">
+                        안녕하세요! 여행 전문가 AI입니다. 무엇을 도와드릴까요?
+                    </div>
+                    <span class="text-[10px] text-gray-400 ml-1">오전 10:00</span>
+                </div>
+            </div>
+
+            <!-- Bot Message -->
+            <div class="flex gap-3">
+                <div
+                    class="w-8 h-8 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 flex-shrink-0 mt-1">
+                    <i class="fa-solid fa-robot text-sm"></i>
+                </div>
+                <div class="flex flex-col gap-1 max-w-[80%]">
+                    <div
+                        class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800">
+                        원하시는 여행지나 일정을 말씀해 주시면 추천해 드릴게요!
+                    </div>
+                    <span class="text-[10px] text-gray-400 ml-1">오전 10:00</span>
+                </div>
+            </div>
+
+            <!-- User Message (Dummy) -->
+            <div class="flex gap-3 flex-row-reverse">
+                <div class="flex flex-col gap-1 max-w-[80%] items-end">
+                    <div class="bg-sky-100 p-3 rounded-2xl rounded-tr-none text-sm text-sky-900 font-medium">
+                        일본 온천 여행 추천해줘
+                    </div>
+                    <span class="text-[10px] text-gray-400 mr-1">오전 10:05</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 border-t border-gray-100 bg-white sticky bottom-0">
+            <div
+                class="flex gap-2 items-center bg-gray-50 rounded-full px-4 py-2 border border-gray-200 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500 transition-all">
+                <input type="text" placeholder="메시지를 입력하세요..."
+                    class="flex-1 bg-transparent text-sm focus:outline-none text-gray-700">
+                <button
+                    class="text-sky-600 hover:text-sky-700 w-8 h-8 flex items-center justify-center rounded-full transition-colors">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toggle Button -->
+    <button id="chat-toggle"
+        class="bg-gradient-to-r from-sky-500 to-blue-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300 group">
+        <i class="fa-solid fa-comments text-2xl group-hover:animate-bounce"></i>
+    </button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatToggle = document.getElementById('chat-toggle');
+        const chatWindow = document.getElementById('chat-window');
+        const closeChat = document.getElementById('close-chat');
+
+        function toggleChat() {
+            const isHidden = chatWindow.classList.contains('hidden');
+            if (isHidden) {
+                chatWindow.classList.remove('hidden');
+                // Small delay to allow display:block to apply before opacity transition
+                setTimeout(() => {
+                    chatWindow.classList.remove('scale-95', 'opacity-0');
+                    chatWindow.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            } else {
+                chatWindow.classList.remove('scale-100', 'opacity-100');
+                chatWindow.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    chatWindow.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        chatToggle.addEventListener('click', toggleChat);
+        closeChat.addEventListener('click', toggleChat);
+    });
+</script>

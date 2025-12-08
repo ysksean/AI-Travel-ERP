@@ -1,0 +1,31 @@
+<!-- Main Header -->
+<header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+        <!-- Logo -->
+        <a href="/" class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center text-white font-bold">T</div>
+            <span class="text-xl font-bold text-sky-600 tracking-tight">Travel Agency</span>
+        </a>
+
+        <!-- Search Bar (Center/Right) -->
+        <div class="hidden md:flex flex-1 max-w-md mx-8">
+            <div class="relative w-full">
+                <input type="text" placeholder="어디로 떠나고 싶으신가요?"
+                    class="w-full pl-4 pr-10 py-2 rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:border-sky-500 focus:outline-none transition-colors">
+                <button class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-sky-500">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Menu -->
+        <nav class="flex items-center gap-4 md:gap-6 text-sm font-medium text-gray-600">
+            <a href="#" class="hover:text-sky-600 transition-colors">로그인</a>
+            <a href="#" class="hover:text-sky-600 transition-colors">회원가입</a>
+            <a href="#" class="hidden md:block hover:text-sky-600 transition-colors">고객센터</a>
+            <button class="md:hidden text-xl text-gray-600">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </nav>
+    </div>
+</header>
