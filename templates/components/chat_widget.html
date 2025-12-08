@@ -24,7 +24,7 @@
         </div>
 
         <!-- Messages Area -->
-        <div class="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-4">
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-4">
             <!-- Bot Message -->
             <div class="flex gap-3">
                 <div
@@ -55,24 +55,16 @@
                 </div>
             </div>
 
-            <!-- User Message (Dummy) -->
-            <div class="flex gap-3 flex-row-reverse">
-                <div class="flex flex-col gap-1 max-w-[80%] items-end">
-                    <div class="bg-sky-100 p-3 rounded-2xl rounded-tr-none text-sm text-sky-900 font-medium">
-                        일본 온천 여행 추천해줘
-                    </div>
-                    <span class="text-[10px] text-gray-400 mr-1">오전 10:05</span>
-                </div>
-            </div>
+
         </div>
 
         <!-- Input Area -->
         <div class="p-4 border-t border-gray-100 bg-white sticky bottom-0">
             <div
                 class="flex gap-2 items-center bg-gray-50 rounded-full px-4 py-2 border border-gray-200 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500 transition-all">
-                <input type="text" placeholder="메시지를 입력하세요..."
+                <input id="chat-input" type="text" placeholder="메시지를 입력하세요..."
                     class="flex-1 bg-transparent text-sm focus:outline-none text-gray-700">
-                <button
+                <button id="send-btn"
                     class="text-sky-600 hover:text-sky-700 w-8 h-8 flex items-center justify-center rounded-full transition-colors">
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
@@ -92,6 +84,9 @@
         const chatToggle = document.getElementById('chat-toggle');
         const chatWindow = document.getElementById('chat-window');
         const closeChat = document.getElementById('close-chat');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
 
         function toggleChat() {
             const isHidden = chatWindow.classList.contains('hidden');
@@ -110,6 +105,99 @@
                 }, 300);
             }
         }
+
+        function appendMessage(sender, text) {
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            let html = '';
+            if (sender === 'user') {
+                html = `
+                <div class="flex gap-3 flex-row-reverse animate-fade-in-up">
+                    <div class="flex flex-col gap-1 max-w-[80%] items-end">
+                        <div class="bg-sky-100 p-3 rounded-2xl rounded-tr-none text-sm text-sky-900 font-medium shadow-sm">
+                            ${text}
+                        </div>
+                        <span class="text-[10px] text-gray-400 mr-1">${time}</span>
+                    </div>
+                </div>`;
+            } else {
+                html = `
+                <div class="flex gap-3 animate-fade-in-up">
+                    <div class="w-8 h-8 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 flex-shrink-0 mt-1">
+                        <i class="fa-solid fa-robot text-sm"></i>
+                    </div>
+                    <div class="flex flex-col gap-1 max-w-[80%]">
+                        <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800">
+                            ${text}
+                        </div>
+                        <span class="text-[10px] text-gray-400 ml-1">${time}</span>
+                    </div>
+                </div>`;
+            }
+            chatMessages.insertAdjacentHTML('beforeend', html);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping() {
+            const html = `
+            <div id="typing-indicator" class="flex gap-3 animate-pulse">
+                <div class="w-8 h-8 bg-sky-100 rounded-full flex items-center justify-center text-sky-600 flex-shrink-0 mt-1">
+                    <i class="fa-solid fa-robot text-sm"></i>
+                </div>
+                <div class="flex flex-col gap-1 max-w-[80%]">
+                     <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800 flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0s"></span>
+                        <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                        <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+                    </div>
+                </div>
+            </div>`;
+            chatMessages.insertAdjacentHTML('beforeend', html);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeTyping() {
+            const typing = document.getElementById('typing-indicator');
+            if (typing) typing.remove();
+        }
+
+        async function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            appendMessage('user', text);
+            chatInput.value = '';
+            showTyping();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                removeTyping();
+
+                if (data.reply) {
+                    appendMessage('bot', data.reply);
+                } else {
+                    appendMessage('bot', '죄송합니다. 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                removeTyping();
+                appendMessage('bot', '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
 
         chatToggle.addEventListener('click', toggleChat);
         closeChat.addEventListener('click', toggleChat);

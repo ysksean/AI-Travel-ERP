@@ -1,6 +1,80 @@
-from flask import Flask, render_template
+import sys
+import os
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+    print("Warning: google-generativeai module not found.")
+
+from flask import Flask, render_template, request, jsonify
+
+# Manual .env loader since python-dotenv might be missing
+def load_env_manual(filepath):
+    try:
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        value = value.strip()
+                        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                            value = value[1:-1]
+                        os.environ[key.strip()] = value
+            print(f"Successfully loaded .env from {filepath}")
+        else:
+            print("No .env file found.")
+    except Exception as e:
+        print(f"Error loading .env file: {e}")
+
+# Load environment variables
+load_env_manual(os.path.join(os.path.dirname(__file__), '.env'))
+
+# Add sibling directory to sys.path to import from travel/
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'travel', 'flask_web')))
+
+try:
+    from services.rag_service import rag_engine
+    print("Successfully imported rag_engine")
+except ImportError as e:
+    print(f"Error importing rag_engine: {e}")
+    rag_engine = None
 
 app = Flask(__name__)
+
+# Normalize API Key
+if not os.getenv('GOOGLE_API_KEY') and os.getenv('MY_API_KEY'):
+    os.environ['GOOGLE_API_KEY'] = os.getenv('MY_API_KEY')
+
+# Configure Google Gemini API
+if genai:
+    GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+    if GOOGLE_API_KEY:
+        genai.configure(api_key=GOOGLE_API_KEY)
+    else:
+        print("Warning: GOOGLE_API_KEY not found in environment variables")
+
+# Initialize RAG Engine with dummy data if needed (or assume it loads its own)
+# The prompt asked to "Call rag_engine.add_knowledge(['mock data list...'])"
+if rag_engine:
+    mock_knowledge = [
+        "홋카이도 4일 상품은 680,000원이며 온천 호텔 숙박이 포함됩니다.",
+        "튀르키예 일주 8~10일 상품은 1,780,000원이며 전일정 5성급 호텔입니다.",
+        "이탈리아 일주 8/9일 상품은 2,100,000원부터 시작합니다.",
+        "시드니 5~8일 상품은 354,700원의 특가로 제공됩니다.",
+        "다낭/호이안 4/5일 상품은 399,000원이며 바나힐 관광이 포함됩니다.",
+        "코타키나발루 5일 상품은 420,000원으로 반딧불 투어가 인기입니다."
+    ]
+    rag_engine.add_knowledge(mock_knowledge)
+
+# ... (rest of mock_data same as before, skipping for brevity in replacement tool if possible, but replace_file_content replaces chunk)
+# I need to match the chunk exactly. The previous start line was 4 (import genai).
+# I will use a smaller chunk for the top part and another for the chat function?
+# No, replace_file_content works on a single contiguous block.
+# I will replace the top imports first.
 
 mock_data = {
     "hero_slides": [
@@ -172,6 +246,66 @@ mock_data = {
 @app.route('/')
 def index():
     return render_template('index.html', data=mock_data)
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    print("Chat endpoint called")
+    data = request.json
+    user_message = data.get('message')
+    print(f"User message: {user_message}")
+
+    if not user_message:
+        return jsonify({'reply': '메시지를 입력해주세요.'}), 400
+
+    try:
+        # 1. RAG Retrieval
+        context = ""
+        if rag_engine:
+            print("Searching in RAG engine...")
+            context = rag_engine.search(user_message)
+            print(f"Retrieved context: {context}")
+        else:
+            print("RAG engine not available")
+        
+        # 2. Gemini Generation
+        if genai and os.getenv('GOOGLE_API_KEY'):
+            model_name = os.getenv('MODEL_NAME', 'gemini-1.5-flash')
+            try:
+                model = genai.GenerativeModel(model_name)
+                print(f"Using model: {model_name}")
+            except Exception:
+                model = genai.GenerativeModel('gemini-pro')
+                print("Fallback to model: gemini-pro")
+            prompt = f"""
+            You are a helpful travel agent for 'AI Hanatour'.
+            Use the following context to answer the user's question politely and professionally in Korean.
+            If the context doesn't have the answer, answer based on general travel knowledge but mention you are not sure about specific product details.
+            
+            Context:
+            {context}
+            
+            User Question:
+            {user_message}
+            
+            Answer:
+            """
+            
+            print("Generating response with Gemini...")
+            response = model.generate_content(prompt)
+            reply = response.text
+            print(f"Gemini reply: {reply}")
+            return jsonify({'reply': reply})
+        else:
+            msg = '죄송합니다. 현재 AI 답변 서비스를 사용할 수 없습니다.'
+            if not os.getenv('GOOGLE_API_KEY'):
+                msg += ' (API Key 미설정)'
+            if context:
+                 msg += f'\n[검색 결과 참고]\n{context}'
+            return jsonify({'reply': msg}), 200
+
+    except Exception as e:
+        print(f"Error processing chat: {e}")
+        return jsonify({'reply': '죄송합니다. 현재 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7879, debug=True)
