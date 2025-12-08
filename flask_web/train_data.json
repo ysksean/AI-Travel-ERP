@@ -1,22 +1,74 @@
 [
   {
-    "text": "다낭 하얏트 리젠시 5성급 3박 5일 견적",
-    "labels": ["B-CITY", "B-HOTEL_NAME", "I-HOTEL_NAME", "I-HOTEL_NAME", "B-HOTEL_GRADE", "O", "O", "O", "O"]
+    "text": "[ LJ 항공팩 ] 치앙마이 레가시 골프텔 ( 2색 ) 3박 5일 상품",
+    "labels": ["O", "B-FLIGHT_NAME", "O", "O", "B-CITY", "B-HOTEL_NAME", "I-HOTEL_NAME", "O", "O", "O", "O", "B-PERIOD", "I-PERIOD", "O"]
   },
   {
-    "text": "대한항공 KE463편 이용, 09:00 출발",
-    "labels": ["B-FLIGHT_NAME", "B-FLIGHT_NUM", "O", "O", "B-DEPART_TIME", "O"]
+    "text": "호텔 | 레가시 리조트 | 싱글룸 | 4 만원 / 박당",
+    "labels": ["O", "O", "B-HOTEL_NAME", "I-HOTEL_NAME", "O", "O", "O", "B-PRICE", "I-PRICE", "O", "O"]
   },
   {
-    "text": "포함사항: 그린피, 카트비, 조식. 불포함: 캐디피",
-    "labels": ["O", "B-INCLUSION", "O", "B-INCLUSION", "O", "B-INCLUSION", "O", "O", "B-EXCLUSION"]
+    "text": "포함 사항 | 항공료 ( 유류 & 택스 ) , 리조트 ( 2인 1실 ) , 식사 ( 조 / 중 / 석 ) , 그린피 ( 1일 36홀 )",
+    "labels": ["O", "O", "O", "B-INCLUSION", "O", "I-INCLUSION", "I-INCLUSION", "I-INCLUSION", "O", "O", "B-INCLUSION", "O", "I-INCLUSION", "I-INCLUSION", "I-INCLUSION", "O", "O", "B-INCLUSION", "O", "I-INCLUSION", "I-INCLUSION", "I-INCLUSION", "I-INCLUSION", "I-INCLUSION", "O", "O", "B-INCLUSION", "O", "I-INCLUSION", "I-INCLUSION", "O"]
   },
   {
-    "text": "취소는 출발 7일 전까지 가능합니다.",
-    "labels": ["B-REFUND", "I-REFUND", "I-REFUND", "I-REFUND", "I-REFUND", "I-REFUND"]
+    "text": "불포함 사항 | 캐디피 ( 300바트 ) , 전동카 ( 750바트 ) , 미팅샌딩차량비 ( $ 50 )",
+    "labels": ["O", "O", "O", "B-EXCLUSION", "O", "I-EXCLUSION", "O", "O", "B-EXCLUSION", "O", "I-EXCLUSION", "O", "O", "B-EXCLUSION", "O", "I-EXCLUSION", "I-EXCLUSION", "O"]
   },
   {
-    "text": "레가시 골프장 18홀 라운딩",
-    "labels": ["B-GOLF_NAME", "I-GOLF_NAME", "O", "B-GOLF_OP"]
+    "text": "미야코지마 브리즈베이 마리나 골프 3일 , 4일 , 5일",
+    "labels": ["B-CITY", "B-HOTEL_NAME", "I-HOTEL_NAME", "O", "B-PERIOD", "O", "B-PERIOD", "O", "B-PERIOD"]
+  },
+  {
+    "text": "■ 브리즈베이 마리나 ( 4성급 ) ( 조식포함 )",
+    "labels": ["O", "B-HOTEL_NAME", "I-HOTEL_NAME", "O", "B-HOTEL_GRADE", "O", "O", "B-INCLUSION", "O"]
+  },
+  {
+    "text": "인천 - 시모지시마 왕복항공권",
+    "labels": ["B-DEPART_PORT", "O", "B-CITY", "O"]
+  },
+  {
+    "text": "판매가 149만 9천원 | 커미션 15만원",
+    "labels": ["O", "B-PRICE", "I-PRICE", "I-PRICE", "O", "O", "O"]
+  },
+  {
+    "text": "플랜에이투어 | 동방목가 CC GOLF 라운딩 5일 / 6일",
+    "labels": ["O", "O", "B-GOLF_NAME", "I-GOLF_NAME", "O", "O", "B-PERIOD", "O", "B-PERIOD"]
+  },
+  {
+    "text": "TW 621 | 22:05 - 02:15 + 1",
+    "labels": ["B-FLIGHT_NUM", "I-FLIGHT_NUM", "O", "B-DEPART_TIME", "O", "I-DEPART_TIME", "O", "O"]
+  },
+  {
+    "text": "호텔 : 동방 푸리서화 호텔 ( = 구 동방동랑 호텔 )",
+    "labels": ["O", "O", "B-HOTEL_NAME", "I-HOTEL_NAME", "I-HOTEL_NAME", "O", "O", "O", "I-HOTEL_NAME", "I-HOTEL_NAME", "O"]
+  },
+  {
+    "text": "스마일 호텔 미야코지마 ( 조식포함 ) 2인 1실 ( 트윈 OR 더블 )",
+    "labels": ["B-HOTEL_NAME", "I-HOTEL_NAME", "I-HOTEL_NAME", "O", "B-INCLUSION", "O", "O", "O", "O", "O", "O", "O", "O"]
+  },
+  {
+    "text": "26년 1월 ~ 2026년 2월 | 큐슈 사가 골프 항공팩",
+    "labels": ["B-DATE", "I-DATE", "O", "I-DATE", "I-DATE", "O", "B-CITY", "I-CITY", "O", "O"]
+  },
+  {
+    "text": "월 , 화 , 수 출발 870,000 원",
+    "labels": ["B-DATE", "O", "I-DATE", "O", "I-DATE", "O", "B-PRICE", "I-PRICE"]
+  },
+  {
+    "text": "호텔 은 사가역 위치 3곳 호텔 중 랜덤 배정 입니다",
+    "labels": ["O", "O", "B-NOTE", "I-NOTE", "I-NOTE", "I-NOTE", "I-NOTE", "I-NOTE", "I-NOTE", "O"]
+  },
+  {
+    "text": "하나마츠리 CC - 18 홀 / 파 72 / 6,834 야드",
+    "labels": ["B-GOLF_NAME", "I-GOLF_NAME", "O", "B-GOLF_OP", "I-GOLF_OP", "O", "I-GOLF_OP", "I-GOLF_OP", "O", "I-GOLF_OP", "I-GOLF_OP"]
+  },
+  {
+    "text": "에메랄드 코스트 골프 링크스 | 18홀 / 파72",
+    "labels": ["B-GOLF_NAME", "I-GOLF_NAME", "I-GOLF_NAME", "I-GOLF_NAME", "O", "B-GOLF_OP", "O", "I-GOLF_OP"]
+  },
+  {
+    "text": "오션링크스 미야코지마 | 18홀 / 파72",
+    "labels": ["B-GOLF_NAME", "I-GOLF_NAME", "O", "B-GOLF_OP", "O", "I-GOLF_OP"]
   }
 ]

@@ -1,267 +1,1374 @@
 {% extends "base.html" %}
 
+{% block title %}상품 등록{% endblock %}
+
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-8 pb-20">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <a href="/products" class="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
-                <i data-lucide="arrow-left" size="24"></i>
-            </a>
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">신규 상품 등록</h1>
-                <p class="text-slate-500 text-sm">일정표 파일을 업로드하거나 직접 입력하세요.</p>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-slate-800">상품 등록</h1>
+        <p class="text-slate-500 mt-2 text-lg">여행의 가치를 높이는 매력적인 상품을 설계하세요.</p>
+    </div>
+
+    <!-- Smart Quotation & Land Operator Upload -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <!-- AI Auto Input -->
+        <div class="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-8 flex flex-col items-center text-center shadow-sm relative overflow-hidden group h-full">
+            <div class="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-indigo-100/50 to-transparent skew-x-12 pointer-events-none z-0"></div>
+            <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-600 mb-4 z-10 relative">
+                <i data-lucide="sparkles" size="32"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 z-10 relative">AI 상품 자동 생성</h3>
+            <p class="text-slate-600 mt-2 mb-6 text-sm z-10 relative">견적서(Excel, Word, PDF)를 업로드하면<br>AI가 상품 정보를 자동으로 완성합니다.</p>
+            <div class="w-full z-20 relative">
+                <label class="w-full py-3 bg-white text-indigo-600 font-bold rounded-xl shadow-sm border border-indigo-100 hover:bg-indigo-50 cursor-pointer transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="upload-cloud" size="20"></i>
+                    <span>파일 업로드</span>
+                    <input type="file" class="hidden" accept=".xlsx,.xls,.pdf,.doc,.docx" id="topQuotationInput">
+                </label>
             </div>
         </div>
-        <div class="flex gap-2">
-            <button class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
-                PDF 내보내기
-            </button>
-            <button class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
-                임시 저장
-            </button>
-            <button
-                class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm shadow-primary-200 flex items-center gap-2">
-                <i data-lucide="save" size="18"></i>
-                상품 게시
-            </button>
+
+        <!-- Land Operator File Upload -->
+        <div class="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-100 rounded-2xl p-8 flex flex-col items-center text-center shadow-sm relative overflow-hidden group h-full">
+            <div class="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-emerald-100/50 to-transparent skew-x-12 pointer-events-none z-0"></div>
+            <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm text-emerald-600 mb-4 z-10 relative">
+                <i data-lucide="file-spreadsheet" size="32"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 z-10 relative">랜드사 가격표 분석</h3>
+            <p class="text-slate-600 mt-2 mb-6 text-sm z-10 relative">가격표를 업로드하면 날짜별, 인원별 요금을<br>자동으로 추출하여 매핑합니다.</p>
+            <div class="w-full z-20 relative">
+                 <label class="w-full py-3 bg-white text-emerald-600 font-bold rounded-xl shadow-sm border border-emerald-100 hover:bg-emerald-50 cursor-pointer transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="upload-cloud" size="20"></i>
+                    <span>파일 업로드</span>
+                    <input type="file" name="land_itinerary_file" class="hidden" id="landFile" accept=".xlsx,.xls,.pdf,.doc,.docx" onchange="handleLandFile(this)">
+                </label>
+                <!-- File Info (Hidden by default) -->
+                <div id="landFileInfo" class="hidden flex items-center justify-center gap-2 mt-2">
+                    <span class="text-sm font-bold text-slate-800" id="landFileName">file.xlsx</span>
+                    <button type="button" class="text-slate-400 hover:text-red-500" onclick="clearLandFile()"><i data-lucide="x" size="14"></i></button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Left Column: AI Input & Basic Info -->
-        <div class="lg:col-span-2 space-y-6">
+    <form id="productForm" class="space-y-12">
+        <input type="hidden" name="save_status" id="saveStatus" value="draft">
 
-            <!-- AI Drop Zone -->
-            <div
-                class="relative border-2 border-dashed border-slate-300 rounded-2xl p-8 transition-all duration-300 hover:border-primary-400 hover:bg-slate-50">
-                <div class="flex flex-col items-center justify-center text-center space-y-4">
-                    <div class="w-16 h-16 rounded-full flex items-center justify-center bg-slate-100 text-slate-400">
-                        <i data-lucide="upload" size="32"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-slate-900">AI 스마트 등록</h3>
-                        <p class="text-slate-500 text-sm mt-1">
-                            일정표 파일(Word, Excel, PDF)을 여기에 드래그하세요. <br />
-                            <span class="text-primary-600 font-medium">AI가 자동으로 내용을 분석하여 입력합니다.</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Basic Info Form -->
-            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <i data-lucide="file-text" size="20" class="text-slate-400"></i>
-                    기본 정보
-                </h2>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">상품명</label>
-                        <input type="text"
-                            class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                            placeholder="예: 일본 프리미엄 골프 투어" />
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">상품코드</label>
-                        <input type="text"
-                            class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                            placeholder="자동 생성 또는 직접 입력" />
-                    </div>
-
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">행사기간</label>
-                        <div class="relative">
-                            <i data-lucide="calendar" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                                size="18"></i>
-                            <input type="text"
-                                class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                placeholder="YYYY/MM/DD ~ YYYY/MM/DD" />
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">지역</label>
-                        <div class="relative">
-                            <i data-lucide="map-pin" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                                size="18"></i>
-                            <select
-                                class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none bg-white">
-                                <option>지역 선택</option>
-                                <option>일본</option>
-                                <option>동남아</option>
-                                <option>유럽</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">박수 (일정)</label>
-                        <div class="relative">
-                            <i data-lucide="clock" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                                size="18"></i>
-                            <input type="text"
-                                class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                placeholder="예: 3박 5일" />
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">상품 구분</label>
-                        <div class="flex p-1 bg-slate-100 rounded-lg">
-                            <button
-                                class="flex-1 py-1.5 text-sm font-medium rounded-md bg-white text-slate-900 shadow-sm">패키지</button>
-                            <button
-                                class="flex-1 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900">항공</button>
-                            <button
-                                class="flex-1 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900">호텔</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Flight Info -->
-                <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <i data-lucide="plane" size="20" class="text-slate-400"></i>
-                        항공 정보
-                    </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-700">항공사</label>
-                            <input type="text" class="w-full px-4 py-2 border border-slate-200 rounded-lg"
-                                placeholder="예: 대한항공" />
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-700">편명</label>
-                            <input type="text" class="w-full px-4 py-2 border border-slate-200 rounded-lg"
-                                placeholder="예: KE123" />
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-700">출발 시간</label>
-                            <input type="time" class="w-full px-4 py-2 border border-slate-200 rounded-lg" />
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-slate-700">도착 시간</label>
-                            <input type="time" class="w-full px-4 py-2 border border-slate-200 rounded-lg" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Image Upload -->
-            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <i data-lucide="image" size="20" class="text-slate-400"></i>
+        <!-- 1. Hero Media Section -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="images" class="text-indigo-600" size="24"></i>
                     대표 이미지
                 </h2>
-                <div
-                    class="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-primary-400 transition-colors cursor-pointer">
-                    <i data-lucide="image" size="32" class="mb-2"></i>
-                    <span class="text-sm">이미지를 드래그하거나 클릭하여 업로드</span>
-                </div>
+                <span class="text-sm text-slate-400">드래그하여 순서를 변경하세요. 첫 번째 이미지가 대표 썸네일입니다.</span>
             </div>
-
-            <!-- Itinerary Editor -->
-            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <i data-lucide="map-pin" size="20" class="text-slate-400"></i>
-                        일정표 타임라인
-                    </h2>
-                    <button class="text-sm text-primary-600 font-medium hover:underline">+ 일차 추가</button>
-                </div>
-
-                <div
-                    class="space-y-6 relative before:absolute before:left-4 before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-200">
-                    {% for day in range(1, 4) %}
-                    <div class="relative pl-10">
-                        <div
-                            class="absolute left-0 top-0 w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm border-4 border-white shadow-sm">
-                            {{ day }}
-                        </div>
-
-                        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <input type="text"
-                                    value="{{ '인천 출발' if day == 1 else ('인천 도착' if day == 3 else '전일 자유 일정') }}"
-                                    class="bg-transparent font-semibold text-slate-900 focus:outline-none border-b border-transparent focus:border-primary-500 transition-colors" />
-                                <div class="flex gap-2">
-                                    <button class="p-1 text-slate-400 hover:text-primary-600"><i data-lucide="plus"
-                                            size="16"></i></button>
-                                    <button class="p-1 text-slate-400 hover:text-red-500"><i data-lucide="trash-2"
-                                            size="16"></i></button>
-                                </div>
-                            </div>
-
-                            <div class="flex gap-2">
-                                <div
-                                    class="flex-1 h-24 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs hover:border-primary-300 hover:bg-white transition-colors cursor-pointer">
-                                    사진 드래그
-                                </div>
-                                <div class="flex-1 space-y-2">
-                                    <div
-                                        class="bg-white rounded-lg border border-slate-200 p-2 text-xs text-slate-500 flex items-center gap-2">
-                                        <i data-lucide="hotel" size="14" class="text-slate-400"></i>
-                                        <input type="text" placeholder="호텔 검색..." class="w-full focus:outline-none" />
-                                    </div>
-                                    <div
-                                        class="bg-white rounded-lg border border-slate-200 p-2 text-xs text-slate-500 flex items-center gap-2">
-                                        <i data-lucide="camera" size="14" class="text-slate-400"></i>
-                                        <input type="text" placeholder="관광지 검색..." class="w-full focus:outline-none" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            <div class="p-8">
+                <div class="border-2 border-dashed border-slate-200 rounded-xl p-10 text-center hover:border-indigo-500 hover:bg-indigo-50 transition-all cursor-pointer mb-8"
+                    id="heroDropzone" onclick="document.getElementById('heroImageInput').click()">
+                    <input type="file" class="hidden" multiple accept="image/*" id="heroImageInput" onchange="handleHeroImages(this)">
+                    <div
+                        class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
+                        <i data-lucide="upload" size="28"></i>
                     </div>
-                    {% endfor %}
+                    <p class="text-lg text-slate-700 font-medium">이미지를 이곳에 드래그하거나 클릭하세요</p>
+                    <p class="text-slate-400 mt-2">고화질 이미지 권장 (최대 10장)</p>
                 </div>
+                <div id="heroImageGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
             </div>
-        </div>
+        </section>
 
-        <!-- Right Column: Settings & Status -->
-        <div class="space-y-6">
-            <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6 sticky top-6">
-                <h3 class="font-bold text-slate-900">설정</h3>
-
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-slate-700">판매 상태</span>
-                        <span
-                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            판매중
-                        </span>
+        <!-- 2. Basic Info & Price -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="info" class="text-indigo-600" size="20"></i>
+                    상품 기본 정보
+                </h2>
+                <div class="flex flex-wrap gap-3">
+                    <div class="inline-flex bg-slate-100 p-1 rounded-lg">
+                        <label
+                            class="px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all bg-white text-slate-800 shadow-sm"
+                            onclick="toggleChip(this)">
+                            <input type="radio" name="product_type" value="domestic" class="hidden"> 국내
+                        </label>
+                        <label
+                            class="px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all text-slate-500 hover:text-slate-700"
+                            onclick="toggleChip(this)">
+                            <input type="radio" name="product_type" value="overseas" class="hidden" checked> 해외
+                        </label>
                     </div>
-
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-slate-700">노출 여부</span>
-                        <div class="w-11 h-6 bg-primary-600 rounded-full relative cursor-pointer">
-                            <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                        </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-500 mb-1.5">국가 / 도시</label>
+                        <input type="text" placeholder="예: 베트남 다낭"
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-slate-800">
                     </div>
-
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">담당자</label>
-                        <select class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                            <option>김철수 (영업팀)</option>
-                            <option>이영희 (수배팀)</option>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-500 mb-1.5">출발지</label>
+                        <select
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-slate-800 bg-white"
+                            id="departureCity">
+                            <option value="ICN/GMP">인천/서울</option>
+                            <option value="PUS">부산</option>
+                            <option value="TAE">대구</option>
+                            <option value="CJJ">청주</option>
+                            <option value="KWJ">광주</option>
+                            <option value="CJU">제주</option>
+                            <option value="YNY">양양</option>
+                            <option value="MWX">무안</option>
+                            <option value="ETC">기타</option>
+                            <option value="ALL">모두 가능</option>
                         </select>
                     </div>
-
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium text-slate-700">노출 순서</label>
-                        <input type="number" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                            value="500" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-500 mb-1.5">상품명</label>
+                    <input type="text" placeholder="고객에게 보여질 매력적인 상품명을 입력하세요"
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-slate-800 font-medium">
+                </div>
+                <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-500 mb-1.5">판매가 (1인)</label>
+                        <div class="relative">
+                            <input type="text" placeholder="0"
+                                class="price-input w-full pl-4 pr-12 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-right font-bold text-slate-800"
+                                onkeyup="formatPrice(this)">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">원</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-500 mb-1.5">입금가 (NET)</label>
+                        <div class="relative">
+                            <input type="text" placeholder="0"
+                                class="price-input w-full pl-4 pr-12 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-right font-bold text-slate-600"
+                                onkeyup="formatPrice(this)">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">원</span>
+                        </div>
                     </div>
                 </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-500 mb-1.5">여행 기간</label>
+                        <div class="flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <input type="number" id="nightsInput" value="3" min="0"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-center font-bold text-slate-800">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">박</span>
+                            </div>
+                            <div class="relative flex-1">
+                                <input type="number" id="daysInput" value="5" min="1"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-center font-bold text-slate-800">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">일</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-500 mb-1.5">행사 기간 설정</label>
+                        <div class="relative">
+                            <i data-lucide="calendar" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                                size="18"></i>
+                            <input type="text" id="dateRangePicker" placeholder="2024-07-01 ~ 2024-08-31"
+                                class="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-slate-800 cursor-pointer bg-white">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col h-full">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="calendar-days" class="text-indigo-600" size="20"></i>
+                    일정 시각화
+                </h2>
+                <div class="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col">
+                    <div class="flex justify-between items-center mb-4 px-2">
+                        <span class="font-bold text-slate-700 text-lg" id="calendarTitle">2024년 7월</span>
+                        <div class="flex gap-1">
+                            <button type="button" class="p-1 hover:bg-slate-200 rounded" onclick="changeMonth(-1)"><i
+                                    data-lucide="chevron-left" size="20"></i></button>
+                            <button type="button" class="p-1 hover:bg-slate-200 rounded" onclick="changeMonth(1)"><i
+                                    data-lucide="chevron-right" size="20"></i></button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                        <span class="text-xs font-bold text-red-500">일</span>
+                        <span class="text-xs font-bold text-slate-500">월</span>
+                        <span class="text-xs font-bold text-slate-500">화</span>
+                        <span class="text-xs font-bold text-slate-500">수</span>
+                        <span class="text-xs font-bold text-slate-500">목</span>
+                        <span class="text-xs font-bold text-slate-500">금</span>
+                        <span class="text-xs font-bold text-blue-500">토</span>
+                    </div>
+                    <div id="calendarGrid" class="grid grid-cols-7 gap-1 text-sm"></div>
+                </div>
+            </div>
+        </section>
 
-                <div class="pt-4 border-t border-slate-100">
-                    <button
-                        class="w-full py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
-                        PDF 미리보기
+
+        <!-- 3. Timeline Itinerary -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="map" class="text-indigo-600" size="24"></i>
+                    상세 일정 (Timeline)
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="resetItinerary()"
+                        class="text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                        <i data-lucide="rotate-ccw" size="14"></i> 일정 초기화
+                    </button>
+                    <button type="button" id="regenerateBtn" onclick="regenerateItinerary()"
+                        class="text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1">
+                        <i data-lucide="sparkles" size="14"></i> AI 일정 재생성
                     </button>
                 </div>
             </div>
+            <div id="timelineContainer" class="p-8 space-y-10"></div>
+        </section>
+
+        <!-- 4. Hotel Info -->
+        <section id="hotelInfoSection"
+            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden">
+            <div class="p-6 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                <strong class="text-lg text-slate-800">4. 호텔 정보</strong>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Essential -->
+                <div>
+                    <h6 class="text-indigo-600 font-bold border-b border-indigo-100 pb-2 mb-4 flex items-center gap-2">
+                        필수 정보 (Essential)</h6>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">호텔명 (한글/영문)</label>
+                            <input type="text"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"
+                                placeholder="예: 다낭 메리어트 리조트">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">위치 (지역)</label>
+                                <input type="text"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"
+                                    placeholder="지역명">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">등급</label>
+                                <select
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none bg-white">
+                                    <option>5성급</option>
+                                    <option>4성급</option>
+                                    <option>3성급</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-span-full">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">상세 설명 & 부대시설</label>
+                            <textarea
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none resize-none"
+                                rows="3" placeholder="호텔 특징 및 수영장, 레스토랑 등 부대시설 입력"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <!-- Additional -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                    <h6 class="text-slate-500 font-bold border-b border-slate-200 pb-2 mb-4">부가 정보 (Additional)</h6>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">체크인/아웃</label>
+                            <input type="text"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 outline-none"
+                                placeholder="15:00 / 11:00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">공항/시내 거리</label>
+                            <input type="text"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 outline-none"
+                                placeholder="예: 15km / 20분">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">웹사이트/전화번호</label>
+                            <input type="text"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 outline-none">
+                        </div>
+                        <div class="col-span-full">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">유의사항 및 추가정보</label>
+                            <input type="text"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 outline-none"
+                                placeholder="추가 참고사항 입력">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Golf Info -->
+        <section id="golfInfoSection"
+            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden">
+            <div class="p-6 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                <strong class="text-lg text-slate-800">5. 골프장 정보</strong>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Essential -->
+                <div>
+                    <h6 class="text-green-600 font-bold border-b border-green-100 pb-2 mb-4">필수 정보 (Essential)</h6>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">골프장명 (한글/현지)</label>
+                            <input type="text"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">위치</label>
+                            <input type="text"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none">
+                        </div>
+                        <div class="col-span-full">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">운영 정보</label>
+                            <input type="text"
+                                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"
+                                placeholder="티오프 간격, 카트/캐디 운영 정책 등">
+                        </div>
+                    </div>
+                </div>
+                <!-- Additional -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100">
+                    <h6 class="text-slate-500 font-bold border-b border-slate-200 pb-2 mb-4">부가 정보 (Additional)</h6>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">웹사이트/전화번호</label>
+                            <input type="text"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">상세 정보</label>
+                            <input type="text"
+                                class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 outline-none"
+                                placeholder="코스 레이아웃, 잔디 종류 등">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Product Details (New Section) -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <i data-lucide="list-checks" class="text-indigo-600" size="24"></i>
+                상품 상세 정보
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">포함 사항</label>
+                    <textarea
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none resize-none"
+                        rows="4" placeholder="- 왕복 항공권&#10;- 전 일정 호텔 숙박 (2인 1실)&#10;- 일정표 상의 식사"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">불포함 사항</label>
+                    <textarea
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none resize-none"
+                        rows="4" placeholder="- 가이드/기사 경비 (1인 $40)&#10;- 개인 경비 및 매너팁&#10;- 선택 관광 비용"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">항공 정보</label>
+                    <input type="text"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"
+                        placeholder="예: 대한항공 KE463 18:00 출발">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">기타 특이사항</label>
+                    <input type="text"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none"
+                        placeholder="쇼핑 3회, 선택관광 정보 등">
+                </div>
+            </div>
+        </section><!-- 7. Integrated Block Editor -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="layout-template" class="text-indigo-600" size="24"></i>
+                        상세 콘텐츠 에디터
+                    </h2>
+                    <p class="text-slate-500 mt-1">텍스트와 이미지를 자유롭게 배치하여 상품 상세 페이지를 완성하세요.</p>
+                </div>
+                <button type="button" id="aiContentBtn" onclick="generateAIContent()"
+                    class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <i data-lucide="sparkles" size="18"></i>
+                    <span>AI 내용 자동 생성</span>
+                </button>
+            </div>
+            <div id="editorBlocks" class="space-y-6 mb-8 min-h-[150px]">
+                <div
+                    class="editor-block group relative bg-white border border-slate-200 rounded-xl p-6 hover:border-indigo-300 transition-colors shadow-sm">
+                    <div class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button"
+                            class="p-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-slate-100"
+                            onclick="removeBlock(this)"><i data-lucide="trash-2" size="18"></i></button>
+                    </div>
+                    <textarea
+                        class="w-full border-none focus:ring-0 resize-none text-slate-700 placeholder:text-slate-300 text-lg leading-relaxed"
+                        rows="3" placeholder="여기에 상세 내용을 입력하세요..."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-center gap-4 border-t border-slate-100 pt-8">
+                <button type="button" onclick="addTextBlock()"
+                    class="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm font-medium">
+                    <i data-lucide="type" size="20"></i>
+                    <span>텍스트 추가</span>
+                </button>
+                <button type="button" onclick="addImageBlock()"
+                    class="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm font-medium">
+                    <i data-lucide="image" size="20"></i>
+                    <span>이미지 추가</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 8. Policies -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="shield-check" class="text-indigo-600" size="24"></i>
+                    약관 및 규정
+                </h2>
+                <button type="button"
+                    class="text-sm text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg transition-colors"
+                    onclick="fillAllPolicies()">
+                    <i data-lucide="folder-open" size="16"></i>
+                    기본 규정 불러오기
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-3">안전수칙 및 유의사항</label>
+                    <textarea id="safetyPolicy"
+                        class="w-full px-5 py-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-slate-700 placeholder:text-slate-300 min-h-[200px] leading-relaxed"
+                        placeholder="여행 안전 수칙을 입력하세요"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-3">취소 및 환불 규정</label>
+                    <textarea id="refundPolicy"
+                        class="w-full px-5 py-4 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none text-slate-700 placeholder:text-slate-300 min-h-[200px] leading-relaxed"
+                        placeholder="취소 및 환불 규정을 입력하세요"></textarea>
+                </div>
+            </div>
+        </section>
+    </form>
+</div>
+
+<!-- Sticky Bottom Action Bar -->
+<div
+    class="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="text-sm text-slate-500 flex items-center gap-2">
+            <i data-lucide="info" size="16"></i>
+            <span>작성 중인 내용은 자동 저장됩니다.</span>
+        </div>
+        <div class="flex gap-3">
+            <button type="button" onclick="submitForm('draft')"
+                class="px-6 py-2.5 text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-semibold transition-all shadow-sm">
+                임시저장
+            </button>
+            <button type="button" onclick="submitForm('published')"
+                class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                <i data-lucide="check" size="18"></i>
+                <span>상품 게시</span>
+            </button>
         </div>
     </div>
 </div>
+
+<!-- Custom Modal -->
+<div id="statusModal"
+    class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full transform scale-95 transition-transform duration-300"
+        id="modalContent">
+        <!-- Content injected by JS -->
+    </div>
+</div>
+
+<!-- Templates -->
+<template id="daySectionTemplate">
+    <div class="day-section relative pl-8 border-l-2 border-indigo-100 ml-4 pb-8 last:border-l-0 last:pb-0">
+        <span class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-indigo-600 ring-4 ring-indigo-50"></span>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-xl text-slate-800 day-title">Day 1</h3>
+            <button type="button" class="text-slate-400 hover:text-indigo-600 transition-colors"
+                onclick="toggleDayVisibility(this)"><i data-lucide="chevron-down" size="20"></i></button>
+        </div>
+        <div class="event-list space-y-3 min-h-[50px]"></div>
+        <div class="mt-4 relative">
+            <button type="button"
+                class="add-event-btn flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors"
+                onclick="showTypeSelector(this)">
+                <i data-lucide="plus" size="16"></i> 일정 추가
+            </button>
+            <div
+                class="type-selector hidden absolute top-10 left-0 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-20 w-64 grid grid-cols-2 gap-1">
+                <button type="button" onclick="addEvent(this, 'flight')"
+                    class="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 font-medium text-left"><span
+                        class="text-lg">✈️</span> 항공</button>
+                <button type="button" onclick="addEvent(this, 'golf')"
+                    class="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 font-medium text-left"><span
+                        class="text-lg">⛳</span> 골프</button>
+                <button type="button" onclick="addEvent(this, 'hotel')"
+                    class="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 font-medium text-left"><span
+                        class="text-lg">🏨</span> 호텔</button>
+                <button type="button" onclick="addEvent(this, 'sightseeing')" <input type="text"
+                    class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="위치 정보">
+                    <label
+                        class="px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-500 text-sm cursor-pointer hover:bg-slate-50 flex items-center gap-1">
+                        <i data-lucide="image" size="14"></i> 사진
+                        <input type="file" class="hidden">
+                    </label>
+            </div>
+        </div>
+</template>
+
+<template id="golfContent">
+    <div class="mode-search relative">
+        <div class="relative">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="16"></i>
+            <input type="text"
+                class="search-input w-full pl-9 pr-20 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="골프장 검색 (예: 다낭 CC)" onkeyup="handleSearch(this)">
+            <button type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-indigo-600 font-bold hover:underline"
+                onclick="toggleMode(this)">직접 입력</button>
+        </div>
+        <div
+            class="search-results hidden absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 z-10 max-h-48 overflow-y-auto">
+        </div>
+        <div class="preview-card hidden mt-3 bg-slate-50 rounded-lg p-3 flex gap-3 border border-slate-200">
+            <img src="" class="w-16 h-16 rounded-md object-cover bg-slate-200">
+            <div>
+                <div class="font-bold text-slate-800 text-sm preview-name"></div>
+                <div class="text-xs text-slate-500 preview-desc mt-1"></div>
+                <div class="text-xs text-slate-400 preview-loc mt-0.5 flex items-center gap-1"><i data-lucide="map-pin"
+                        size="10"></i> <span></span></div>
+            </div>
+        </div>
+    </div>
+    <div class="mode-manual hidden space-y-4">
+        <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-500">골프장 정보 입력</span>
+            <button type="button" class="text-xs text-indigo-600 font-bold hover:underline"
+                onclick="toggleMode(this)">DB 검색으로 전환</button>
+        </div>
+
+        <!-- Essential -->
+        <div>
+            <h6 class="text-green-600 font-bold border-b border-green-100 pb-2 mb-3 text-sm">필수 정보 (Essential)</h6>
+            <div class="grid grid-cols-1 gap-3">
+                <div class="flex gap-2">
+                    <input type="text"
+                        class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                        placeholder="골프장명 (한글/현지)">
+                    <label
+                        class="px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-500 text-sm cursor-pointer hover:bg-slate-50 flex items-center gap-1 shrink-0">
+                        <i data-lucide="image" size="14"></i> 사진
+                        <input type="file" class="hidden" multiple accept="image/*" onchange="handleCardImages(this)">
+                    </label>
+                </div>
+                <div class="card-image-grid grid grid-cols-4 gap-2"></div>
+                <input type="text"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="위치">
+                <textarea
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none resize-none"
+                    rows="3" placeholder="운영 정보 (티오프, 카트 등)"></textarea>
+            </div>
+        </div>
+
+        <!-- Additional -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <h6 class="text-slate-500 font-bold border-b border-slate-200 pb-2 mb-3 text-sm">부가 정보 (Additional)</h6>
+            <div class="grid grid-cols-2 gap-2">
+                <input type="text"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="웹사이트/전화번호">
+                <input type="text"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="상세 정보 (코스 등)">
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="imageBlockTemplate">
+    <div
+        class="editor-block group relative bg-white border border-slate-200 rounded-xl p-6 hover:border-indigo-300 transition-colors shadow-sm">
+        <div class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <button type="button" class="p-2 text-slate-400 hover:text-red-500 rounded-full bg-white shadow-sm"
+                onclick="removeBlock(this)"><i data-lucide="trash-2" size="18"></i></button>
+        </div>
+        <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-8 hover:bg-slate-50 cursor-pointer transition-colors mb-4"
+            onclick="this.querySelector('input').click()">
+            <i data-lucide="image-plus" class="text-slate-400 mb-3" size="32"></i>
+            <span class="text-slate-600 font-medium">이미지 추가 (다중 선택 가능)</span>
+            <input type="file" class="hidden" multiple accept="image/*" onchange="addImagesToBlock(this)">
+        </div>
+        <div class="image-grid grid grid-cols-3 md:grid-cols-5 gap-4"></div>
+    </div>
+</template>
+
+<template id="textBlockTemplate">
+    <div
+        class="editor-block group relative bg-white border border-slate-200 rounded-xl p-6 hover:border-indigo-300 transition-colors shadow-sm">
+        <div class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button type="button" class="p-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-slate-100"
+                onclick="removeBlock(this)"><i data-lucide="trash-2" size="18"></i></button>
+        </div>
+        <textarea
+            class="w-full border-none focus:ring-0 resize-none text-slate-700 placeholder:text-slate-300 text-lg leading-relaxed"
+            rows="3" placeholder="여기에 상세 내용을 입력하세요."></textarea>
+    </div>
+</template>
+
+<template id="hotelContent">
+    <div class="mode-search relative">
+        <div class="relative">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="16"></i>
+            <input type="text"
+                class="search-input w-full pl-9 pr-20 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="호텔 검색 (예: 하얏트 리젠시)" onkeyup="handleSearch(this)">
+            <button type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-indigo-600 font-bold hover:underline"
+                onclick="toggleMode(this)">직접 입력</button>
+        </div>
+        <div
+            class="search-results hidden absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 z-10 max-h-48 overflow-y-auto">
+        </div>
+        <div class="preview-card hidden mt-3 bg-slate-50 rounded-lg p-3 flex gap-3 border border-slate-200">
+            <img src="" class="w-16 h-16 rounded-md object-cover bg-slate-200">
+            <div>
+                <div class="font-bold text-slate-800 text-sm preview-name"></div>
+                <div class="text-xs text-slate-500 preview-desc mt-1"></div>
+                <div class="text-xs text-slate-400 preview-loc mt-0.5 flex items-center gap-1"><i data-lucide="map-pin"
+                        size="10"></i> <span></span></div>
+            </div>
+        </div>
+    </div>
+    <div class="mode-manual hidden space-y-4">
+        <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-500">호텔 정보 입력</span>
+            <button type="button" class="text-xs text-indigo-600 font-bold hover:underline"
+                onclick="toggleMode(this)">DB 검색으로 전환</button>
+        </div>
+
+        <!-- Essential -->
+        <div>
+            <h6 class="text-indigo-600 font-bold border-b border-indigo-100 pb-2 mb-3 text-sm">필수 정보 (Essential)
+            </h6>
+            <div class="grid grid-cols-1 gap-3">
+                <div class="flex gap-2">
+                    <input type="text"
+                        class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                        placeholder="호텔명 (한글/영문)">
+                    <label
+                        class="px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-500 text-sm cursor-pointer hover:bg-slate-50 flex items-center gap-1 shrink-0">
+                        <i data-lucide="image" size="14"></i> 사진
+                        <input type="file" class="hidden" multiple accept="image/*" onchange="handleCardImages(this)">
+                    </label>
+                </div>
+                <div class="card-image-grid grid grid-cols-4 gap-2"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text"
+                        class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                        placeholder="위치 (지역)">
+                    <select
+                        class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none bg-white">
+                        <option>5성급</option>
+                        <option>4성급</option>
+                        <option>3성급</option>
+                    </select>
+                </div>
+                <textarea
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none resize-none"
+                    rows="3" placeholder="호텔 특징 및 부대시설"></textarea>
+            </div>
+        </div>
+
+        <!-- Additional -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <h6 class="text-slate-500 font-bold border-b border-slate-200 pb-2 mb-3 text-sm">부가 정보 (Additional)</h6>
+            <div class="grid grid-cols-3 gap-2">
+                <input type="text"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="체크인/아웃">
+                <input type="text"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="공항/시내 거리">
+                <input type="text"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                    placeholder="웹사이트">
+            </div>
+            <input type="text"
+                class="w-full mt-2 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="유의사항 및 추가정보">
+        </div>
+    </div>
+</template>
+
+<template id="flightContent">
+    <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+            <input type="text"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="항공편명 (예: KE463)">
+            <input type="text"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="출발 시간 (예: 18:05)">
+        </div>
+        <div class="flex gap-2">
+            <input type="text"
+                class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="출발지">
+            <span class="text-slate-400 self-center">→</span>
+            <input type="text"
+                class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="도착지">
+        </div>
+    </div>
+</template>
+
+<template id="hybridContent">
+    <div class="mode-search relative">
+        <div class="relative">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size="16"></i>
+            <input type="text"
+                class="search-input w-full pl-9 pr-20 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="관광지 검색" onkeyup="handleSearch(this)">
+            <button type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-indigo-600 font-bold hover:underline"
+                onclick="toggleMode(this)">직접 입력</button>
+        </div>
+        <div
+            class="search-results hidden absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 z-10 max-h-48 overflow-y-auto">
+        </div>
+        <div class="preview-card hidden mt-3 bg-slate-50 rounded-lg p-3 flex gap-3 border border-slate-200">
+            <img src="" class="w-16 h-16 rounded-md object-cover bg-slate-200">
+            <div>
+                <div class="font-bold text-slate-800 text-sm preview-name"></div>
+                <div class="text-xs text-slate-500 preview-desc mt-1"></div>
+                <div class="text-xs text-slate-400 preview-loc mt-0.5 flex items-center gap-1"><i data-lucide="map-pin"
+                        size="10"></i> <span></span></div>
+            </div>
+        </div>
+    </div>
+    <div class="mode-manual hidden space-y-3">
+        <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-500">관광지 정보 입력</span>
+            <button type="button" class="text-xs text-indigo-600 font-bold hover:underline"
+                onclick="toggleMode(this)">DB 검색으로 전환</button>
+        </div>
+        <div class="flex gap-2">
+            <input type="text"
+                class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="관광지명">
+            <label
+                class="px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-500 text-sm cursor-pointer hover:bg-slate-50 flex items-center gap-1 shrink-0">
+                <i data-lucide="image" size="14"></i> 사진
+                <input type="file" class="hidden" multiple accept="image/*" onchange="handleCardImages(this)">
+            </label>
+        </div>
+        <div class="card-image-grid grid grid-cols-4 gap-2"></div>
+        <textarea
+            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none resize-none"
+            rows="2" placeholder="상세 설명"></textarea>
+    </div>
+</template>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    console.log("Product Create Script Loaded");
+
+    // --- 1. Itinerary Controls ---
+    window.resetItinerary = function () {
+        if (confirm('정말로 일정을 초기화하시겠습니까? 입력된 모든 일정이 삭제됩니다.')) {
+            generateTimeline(); // Re-generates empty days
+        }
+    }
+
+    window.regenerateItinerary = async function () {
+        const btn = document.getElementById('regenerateBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin" size="14"></i> 생성 중...';
+        lucide.createIcons();
+
+        await new Promise(r => setTimeout(r, 1000)); // Simulate AI delay
+
+        generateTimeline(); // Reset first
+        // Add some mock events
+        const days = document.querySelectorAll('.day-section');
+        if (days.length > 0) {
+            // Add a mock flight to Day 1
+            const day1Btn = days[0].querySelector('.add-event-btn');
+            if (day1Btn) {
+                addEvent(day1Btn, 'flight');
+                addEvent(day1Btn, 'hotel');
+            }
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
+    }
+
+    // --- 2. Sticky Bottom Bar & Submit ---
+    window.submitForm = function (status) {
+        document.getElementById('saveStatus').value = status;
+        document.getElementById('productForm').dispatchEvent(new Event('submit'));
+    }
+
+    const productForm = document.getElementById('productForm');
+    const statusModal = document.getElementById('statusModal');
+    const modalContent = document.getElementById('modalContent');
+    let isSuccess = false;
+
+    if (productForm) {
+        productForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const buttons = document.querySelectorAll('.fixed.bottom-0 button');
+            buttons.forEach(b => b.disabled = true);
+
+            // Simulate API call
+            await new Promise(r => setTimeout(r, 1500));
+
+            isSuccess = true; // Mock success
+            showModal(isSuccess);
+
+            buttons.forEach(b => b.disabled = false);
+        });
+    }
+
+    window.showModal = function (success) {
+        if (!statusModal || !modalContent) return;
+        statusModal.classList.remove('hidden');
+        if (success) {
+            modalContent.innerHTML = `
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="check" class="text-green-600" size="24"></i></div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2">저장 완료</h3>
+                <p class="text-slate-600 mb-6">상품 정보가 성공적으로 저장되었습니다.</p>
+                <div class="flex gap-2">
+                    <button onclick="handleModalAction('list')"
+                        class="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">목록으로</button>
+                    <button onclick="handleModalAction('stay')"
+                        class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">계속
+                        수정</button>
+                </div>
+            `;
+        } else {
+            modalContent.innerHTML = `
+                <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="alert-circle" class="text-red-600" size="24"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2">저장 실패</h3>
+                <p class="text-slate-600 mb-6">오류가 발생했습니다. 다시 시도해주세요.</p>
+                <button onclick="statusModal.classList.add('hidden')"
+                    class="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">닫기</button>
+            `;
+        }
+        lucide.createIcons();
+    }
+
+    window.handleModalAction = function (action) {
+        statusModal.classList.add('hidden');
+        if (action === 'list') {
+            window.location.href = '/products'; // Adjust URL as needed
+        }
+    }
+
+    // --- 3. Timeline & Event Logic ---
+    const dummyDB = {
+        hotel: [
+            { name: "하얏트 리젠시 다낭", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=100", desc: "5성급 • 논누옥 비치", loc: "다낭, 베트남" },
+            { name: "빈펄 리조트 & 스파", image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=100", desc: "5성급 • 프라이빗 풀빌라", loc: "호이안, 베트남" },
+            { name: "노보텔 다낭 프리미어", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=100", desc: "4성급 • 한강 뷰", loc: "다낭 시내" }
+        ],
+        golf: [
+            { name: "다낭 CC", image: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?auto=format&fit=crop&q=80&w=100", desc: "18홀 • 듄스 코스", loc: "다낭" },
+            { name: "몽고메리 링크스", image: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&q=80&w=100", desc: "18홀 • 콜린 몽고메리 설계", loc: "꽝남" },
+            { name: "바나힐 골프 클럽", image: "https://images.unsplash.com/photo-1605118386294-0365f3a13dd2?auto=format&fit=crop&q=80&w=100", desc: "18홀 • 산악형 코스", loc: "바나힐" }
+        ],
+        sightseeing: [
+            { name: "바나힐 투어", image: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&q=80&w=100", desc: "테마파크 • 케이블카", loc: "다낭" },
+            { name: "호이안 올드타운", image: "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&q=80&w=100", desc: "유네스코 유산 • 야경", loc: "호이안" },
+            { name: "미케 비치", image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=100", desc: "해변 • 서핑", loc: "다낭" }
+        ]
+    };
+
+    function renderCalendar() {
+        const currentDate = new Date();
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const title = document.getElementById('calendarTitle');
+        if (title) title.textContent = `${year}년 ${month + 1} 월`;
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const grid = document.getElementById('calendarGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        for (let i = 0; i < firstDay.getDay(); i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+
+        // Mock selected range for demo
+        const startDate = new Date(year, month, 1);
+        const endDate = new Date(year, month, 5);
+
+        for (let d = 1; d <= lastDay.getDate(); d++) {
+            const date = new Date(year, month, d);
+            const cell = document.createElement('div');
+            cell.className = 'aspect-square flex items-center justify-center rounded-lg text-sm cursor-default transition-colors';
+            cell.textContent = d;
+
+            if (startDate && endDate) {
+                if (date >= startDate && date <= endDate) {
+                    cell.classList.add('bg-indigo-100', 'text-indigo-700', 'font-bold');
+                    if (date.getDate() === startDate.getDate()) cell.classList.add('bg-indigo-600', 'text-white');
+                    if (date.getDate() === endDate.getDate()) cell.classList.add('bg-indigo-600', 'text-white');
+                }
+            }
+            grid.appendChild(cell);
+        }
+    }
+    
+    window.changeMonth = function (delta) {
+        renderCalendar();
+    }
+
+    const editorBlocks = document.getElementById('editorBlocks');
+    const textBlockTemplate = document.getElementById('textBlockTemplate');
+    const imageBlockTemplate = document.getElementById('imageBlockTemplate');
+
+    if (editorBlocks) {
+        new Sortable(editorBlocks, { animation: 150, handle: '.editor-block', ghostClass: 'bg-indigo-50' });
+    }
+
+    window.addTextBlock = function (initialContent = '') {
+        const clone = textBlockTemplate.content.cloneNode(true);
+        if (initialContent) {
+            clone.querySelector('textarea').value = initialContent;
+        }
+        editorBlocks.appendChild(clone);
+        lucide.createIcons();
+    }
+
+    window.addImageBlock = function () {
+        const clone = imageBlockTemplate.content.cloneNode(true);
+        new Sortable(clone.querySelector('.image-grid'), { animation: 150, ghostClass: 'bg-indigo-50' });
+        editorBlocks.appendChild(clone);
+        lucide.createIcons();
+    }
+
+    window.addImagesToBlock = function (input) {
+        const grid = input.parentElement.nextElementSibling;
+        handleFiles(input.files, grid);
+        input.value = '';
+    }
+
+    window.removeBlock = function (btn) {
+        btn.closest('.editor-block').remove();
+    }
+
+    window.generateAIContent = async function () {
+        const btn = document.getElementById('aiContentBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> 생성 중...';
+        await new Promise(r => setTimeout(r, 1500));
+
+        // 1. Basic Info
+        const productName = document.querySelector('input[placeholder="고객에게 보여질 매력적인 상품명을 입력하세요"]');
+        if (productName) productName.value = "[럭셔리] 다낭/호이안 3박 5일 프리미엄 골프 투어";
+
+        const countryCity = document.querySelector('input[placeholder="예: 베트남 다낭"]');
+        if (countryCity) countryCity.value = "베트남 다낭";
+
+        const departureCity = document.getElementById('departureCity');
+        if (departureCity) departureCity.value = "ICN/GMP";
+
+        // 2. Hotel Info
+        const hotelName = document.querySelector('input[placeholder="예: 다낭 메리어트 리조트"]');
+        if (hotelName) hotelName.value = "하얏트 리젠시 다낭 리조트 앤 스파";
+
+        // 4. Policies
+        fillAllPolicies();
+
+        // 5. Timeline
+        const daysInput = document.getElementById('daysInput');
+        if (daysInput.value < 3) { daysInput.value = 3; generateTimeline(); } else {
+            generateTimeline();
+        }
+        
+        const days = document.querySelectorAll('.day-section');
+        if (days.length > 0) {
+            // Day 1
+            const day1Btn = days[0].querySelector('.add-event-btn');
+            if (day1Btn) {
+                addEvent(day1Btn, 'flight');
+                addEvent(day1Btn, 'hotel');
+            }
+
+            // Day 2
+            if (days.length > 1) {
+                const day2Btn = days[1].querySelector('.add-event-btn');
+                if (day2Btn) {
+                    addEvent(day2Btn, 'golf');
+                    addEvent(day2Btn, 'meal');
+                    addEvent(day2Btn, 'sightseeing');
+                }
+            }
+        }
+
+        // 6. Editor Blocks
+        const mockData = [
+            "이 여행 상품은 베트남 다낭의 아름다운 해변과 역사적인 명소를 모두 즐길 수 있는 최고의 패키지입니다.",
+            "첫째 날에는 다낭 국제공항에 도착하여 가이드 미팅 후 호텔로 이동합니다.",
+            "둘째 날은 명문 골프장인 다낭 CC에서 18홀 라운딩을 즐깁니다.",
+            "셋째 날은 호이안 올드타운을 방문하고 몽고메리 링크스에서 라운딩을 합니다.",
+            "마지막 날에는 롯데마트에서 기념품을 쇼핑하고 공항으로 이동합니다."
+        ];
+
+        editorBlocks.innerHTML = '';
+        mockData.forEach(text => addTextBlock(text));
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        lucide.createIcons();
+    }
+
+    window.formatPrice = function (input) {
+        let value = input.value.replace(/\D/g, '');
+        if (value) {
+            value = parseInt(value).toLocaleString();
+        }
+        input.value = value;
+    }
+
+    window.toggleChip = function (label) {
+        const container = label.parentElement;
+        container.querySelectorAll('label').forEach(l => {
+            l.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+            l.classList.add('text-slate-500');
+        });
+        label.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+        label.classList.remove('text-slate-500');
+    }
+
+    window.fillAllPolicies = function () {
+        document.getElementById('safetyPolicy').value = "- 현지 기상 악화 시 일정이 변경될 수 있습니다.\n- 개인 소지품 분실에 주의하시기 바랍니다.";
+        document.getElementById('refundPolicy').value = "- 여행 개시 30일 전까지 통보 시: 계약금 환급\n- 여행 개시 20일 전까지 통보 시: 여행요금의 10 % 배상";
+    }
+
+    window.handleCardImages = function (input) {
+        const grid = input.closest('.grid-cols-1').querySelector('.card-image-grid');
+        handleFiles(input.files, grid);
+        input.value = '';
+    }
+
+    window.showTypeSelector = function (btn) {
+        const selector = btn.nextElementSibling;
+        selector.classList.remove('hidden');
+        document.querySelectorAll('.type-selector').forEach(el => {
+            if (el !== selector) el.classList.add('hidden');
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.relative')) {
+            document.querySelectorAll('.type-selector').forEach(el => el.classList.add('hidden'));
+        }
+    });
+
+    window.addEvent = function (btn, type) {
+        const selector = btn.closest('.type-selector');
+        const daySection = btn.closest('.day-section');
+        const eventList = daySection.querySelector('.event-list');
+
+        let card;
+        let icon;
+        let contentArea;
+
+        // Create basic card structure
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <div class="event-card group bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-300 transition-all shadow-sm cursor-move"
+                data-category="${type}">
+                <div class="flex items-start gap-3">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-lg event-icon">
+                    </div>
+                    <div class="flex-1 event-content"></div>
+                    <button type="button" onclick="this.closest('.event-card').remove()"
+                        class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2"
+                            size="16"></i></button>
+                </div>
+            </div>
+            `;
+        card = div.firstElementChild;
+        const iconDiv = card.querySelector('.event-icon');
+        contentArea = card.querySelector('.event-content');
+
+        if (type === 'flight') {
+            icon = '✈️';
+            contentArea.appendChild(document.getElementById('flightContent').content.cloneNode(true));
+        } else if (type === 'hotel') {
+            icon = '🏨';
+            contentArea.appendChild(document.getElementById('hotelContent').content.cloneNode(true));
+            card.dataset.category = 'hotel';
+            const hotelGrid = contentArea.querySelector('.card-image-grid');
+            if (hotelGrid) {
+                new Sortable(hotelGrid, { animation: 150, ghostClass: 'bg-indigo-50' });
+            }
+        } else if (type === 'golf') {
+            icon = '⛳';
+            contentArea.appendChild(document.getElementById('golfContent').content.cloneNode(true));
+            card.dataset.category = 'golf';
+            const golfGrid = contentArea.querySelector('.card-image-grid');
+            if (golfGrid) {
+                new Sortable(golfGrid, { animation: 150, ghostClass: 'bg-indigo-50' });
+            }
+        } else if (type === 'sightseeing') {
+            icon = '📷';
+            contentArea.appendChild(document.getElementById('hybridContent').content.cloneNode(true));
+            card.dataset.category = 'sightseeing';
+        } else if (type === 'meal') {
+            icon = '🍽️';
+            contentArea.innerHTML = `<input type="text"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="식사 장소/메뉴 입력">`;
+        } else {
+            icon = '📝';
+            contentArea.innerHTML = `<input type="text"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                placeholder="일정 내용 입력">`;
+        }
+
+        iconDiv.textContent = icon;
+        eventList.appendChild(card);
+        selector.classList.add('hidden');
+        lucide.createIcons();
+    }
+
+    window.toggleMode = function (btn) {
+        const container = btn.closest('.event-content');
+        const searchMode = container.querySelector('.mode-search');
+        const manualMode = container.querySelector('.mode-manual');
+
+        if (searchMode.classList.contains('hidden')) {
+            searchMode.classList.remove('hidden');
+            manualMode.classList.add('hidden');
+        } else {
+            searchMode.classList.add('hidden');
+            manualMode.classList.remove('hidden');
+        }
+    }
+
+    window.handleSearch = function (input) {
+        const query = input.value.toLowerCase();
+        const container = input.closest('.mode-search');
+        const resultsDiv = container.querySelector('.search-results');
+        const card = input.closest('.event-card');
+        const category = card.dataset.category || 'sightseeing'; // default
+
+        if (query.length < 1) { resultsDiv.classList.add('hidden'); return; } const data = dummyDB[category] ||
+            []; const filtered = data.filter(item => item.name.toLowerCase().includes(query));
+
+        resultsDiv.innerHTML = filtered.map(item => `
+                <div class="p-3 hover:bg-indigo-50 cursor-pointer flex gap-3 items-center transition-colors"
+                    onclick='selectItem(this, ${JSON.stringify(item)})'>
+                    <img src="${item.image}" class="w-10 h-10 rounded object-cover bg-slate-200" />
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">${item.name}</div>
+                        <div class="text-xs text-slate-500">${item.desc}</div>
+                    </div>
+                </div>
+                `).join('');
+
+        resultsDiv.classList.remove('hidden');
+    }
+
+    window.selectItem = function (el, item) {
+        const container = el.closest('.mode-search');
+        const input = container.querySelector('.search-input');
+        const resultsDiv = container.querySelector('.search-results');
+        const preview = container.querySelector('.preview-card');
+
+        input.value = item.name;
+        resultsDiv.classList.add('hidden');
+
+        preview.querySelector('img').src = item.image;
+        preview.querySelector('.preview-name').textContent = item.name;
+        preview.querySelector('.preview-desc').textContent = item.desc;
+        preview.querySelector('.preview-loc span').textContent = item.loc;
+        preview.classList.remove('hidden');
+    }
+
+    window.handleQuotationFile = async function(input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        const label = input.closest('label');
+        const icon = label.querySelector('i');
+        const span = label.querySelector('span');
+        const originalIcon = icon.getAttribute('data-lucide');
+        const originalText = span.textContent;
+        
+        icon.setAttribute('data-lucide', 'loader-2');
+        icon.classList.add('animate-spin');
+        span.textContent = '분석 중...';
+        lucide.createIcons();
+        
+        await new Promise(r => setTimeout(r, 2000));
+        
+        // Removed generateAIContent() call as per revert request
+        // await generateAIContent();
+        
+        icon.setAttribute('data-lucide', originalIcon);
+        icon.classList.remove('animate-spin');
+        span.textContent = originalText;
+        lucide.createIcons();
+        
+        // Clear input
+        input.value = '';
+    }
+
+    window.handleHeroImages = function(input) {
+        const grid = document.getElementById('heroImageGrid');
+        const files = Array.from(input.files);
+        
+        if (files.length === 0) return;
+
+        files.forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'relative group aspect-square rounded-xl overflow-hidden border border-slate-200';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button type="button" onclick="this.closest('div.relative').remove()" class="p-2 bg-white/90 rounded-full text-red-500 hover:bg-white transition-colors">
+                            <i data-lucide="trash-2" size="16"></i>
+                        </button>
+                    </div>
+                    <div class="absolute top-2 left-2 px-2 py-1 bg-black/60 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                        대표
+                    </div>
+                `;
+                grid.appendChild(div);
+                lucide.createIcons();
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        input.value = '';
+    }
+
+    window.handleLandFile = function (input) {
+        const file = input.files[0];
+        if (file) {
+            const container = document.getElementById('landFileInfo');
+            const name = document.getElementById('landFileName');
+            name.textContent = file.name;
+            container.classList.remove('hidden');
+        }
+    }
+
+    window.clearLandFile = function () {
+        document.getElementById('landFile').value = '';
+        document.getElementById('landFileInfo').classList.add('hidden');
+    }
+
+    window.generateTimeline = function () {
+        console.log("Generating Timeline...");
+        const daysInput = document.getElementById('daysInput');
+        const container = document.getElementById('timelineContainer');
+        const days = parseInt(daysInput.value) || 3;
+
+        console.log("Days:", days);
+        console.log("Container:", container);
+
+        if (!container) {
+            console.error("Timeline container not found!");
+            return;
+        }
+
+        container.innerHTML = '';
+
+        for (let i = 1; i <= days; i++) {
+            const daySection = document.createElement('div');
+            daySection.className = 'day-section border border-slate-200 rounded-xl p-6 bg-slate-50';
+            daySection.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-slate-700 text-lg">Day ${i}</h4>
+                        <div class="relative">
+                            <button type="button" onclick="showTypeSelector(this)"
+                                class="add-event-btn flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-bold text-slate-600 transition-colors shadow-sm">
+                                <i data-lucide="plus" size="16"></i> 일정 추가
+                            </button>
+                            <div class="type-selector hidden absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 p-2 grid grid-cols-2 gap-2">
+                                <button type="button" onclick="addEvent(this, 'flight')" class="flex flex-col items-center justify-center p-3 hover:bg-indigo-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors gap-1">
+                                    <span class="text-xl">✈️</span><span class="text-xs font-bold">항공</span>
+                                </button>
+                                <button type="button" onclick="addEvent(this, 'hotel')" class="flex flex-col items-center justify-center p-3 hover:bg-indigo-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors gap-1">
+                                    <span class="text-xl">🏨</span><span class="text-xs font-bold">숙박</span>
+                                </button>
+                                <button type="button" onclick="addEvent(this, 'golf')" class="flex flex-col items-center justify-center p-3 hover:bg-indigo-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors gap-1">
+                                    <span class="text-xl">⛳</span><span class="text-xs font-bold">골프</span>
+                                </button>
+                                <button type="button" onclick="addEvent(this, 'sightseeing')" class="flex flex-col items-center justify-center p-3 hover:bg-indigo-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors gap-1">
+                                    <span class="text-xl">📷</span><span class="text-xs font-bold">관광</span>
+                                </button>
+                                <button type="button" onclick="addEvent(this, 'meal')" class="flex flex-col items-center justify-center p-3 hover:bg-indigo-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors gap-1">
+                                    <span class="text-xl">🍽️</span><span class="text-xs font-bold">식사</span>
+                                </button>
+                                <button type="button" onclick="addEvent(this, 'other')" class="flex flex-col items-center justify-center p-3 hover:bg-indigo-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors gap-1">
+                                    <span class="text-xl">📝</span><span class="text-xs font-bold">기타</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="event-list space-y-3 min-h-[50px]" data-day="${i}"></div>
+                `;
+            container.appendChild(daySection);
+
+            new Sortable(daySection.querySelector('.event-list'), {
+                group: 'shared',
+                animation: 150,
+                ghostClass: 'bg-indigo-50',
+                handle: '.event-card'
+            });
+        }
+        lucide.createIcons();
+    }
+
+    const datePicker = document.getElementById('dateRangePicker');
+    if (datePicker) {
+        datePicker.addEventListener('click', function() {
+            const calendarSection = document.getElementById('calendarGrid').closest('section');
+            if (calendarSection) {
+                calendarSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                calendarSection.classList.add('ring-2', 'ring-indigo-500', 'transition-all', 'duration-500');
+                setTimeout(() => calendarSection.classList.remove('ring-2', 'ring-indigo-500'), 1000);
+            }
+        });
+    }
+
+    // Initialize
+    renderCalendar();
+    generateTimeline();
+</script>
 {% endblock %}
