@@ -1,7 +1,7 @@
 import os
 import torch
 from transformers import AutoTokenizer, ElectraForTokenClassification
-from services.parsing_service import parsing_manager
+from services.parsing_service import UniversalTravelAI
 
 # 태그 라벨 정의
 LABEL_LIST = [
@@ -41,6 +41,9 @@ class AIService:
         # 이렇게 해야 'import ai_service' 할 때 시간이 걸리지 않고 즉시 임포트됨
         self._resources_loaded = False
         self._initialized = True
+        
+        # UniversalTravelAI 인스턴스 생성
+        self.parsing_service = UniversalTravelAI()
 
     def _ensure_resources_loaded(self):
         """실제 기능(함수)이 호출될 때 비로소 모델을 로드함 (Lazy Loading)"""
@@ -87,7 +90,8 @@ class AIService:
 
         # 1. 텍스트 추출 (Parsing Service)
         try:
-            raw_text = parsing_manager.parse_file(file_path)
+            # UniversalTravelAI의 텍스트 추출 메서드 사용
+            raw_text = self.parsing_service._extract_text_content(file_path)
             if not raw_text:
                 return {"status": "error", "message": "파일에서 텍스트를 읽을 수 없습니다."}
         except Exception as e:

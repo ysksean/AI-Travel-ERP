@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carry Golf AI Chat Test</title>
+    <style>
+        /* [스타일 정의] 간단한 채팅 UI */
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; justify-content: center; height: 100vh; }
+        .chat-container { width: 100%; max-width: 500px; background: white; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: 100%; }
+
+        /* 헤더 */
+        .chat-header { background-color: #004d40; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
+
+        /* 채팅창 (메시지 영역) */
+        .chat-window { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+        /* 말풍선 스타일 */
+        .message { padding: 10px 15px; border-radius: 15px; max-width: 75%; line-height: 1.5; font-size: 0.95rem; word-wrap: break-word; }
+        .message.bot { background-color: #e0f2f1; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .message.user { background-color: #009688; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .message.error { background-color: #ffebee; color: #c62828; align-self: center; font-size: 0.8rem; }
+
+        /* 입력 영역 */
+        .input-area { border-top: 1px solid #ddd; padding: 15px; display: flex; gap: 10px; background: #fff; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; transition: 0.3s; }
+        input[type="text"]:focus { border-color: #009688; }
+        button { background-color: #004d40; color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #00695c; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* 로딩 애니메이션 */
+        .typing-indicator { font-size: 0.8rem; color: #888; display: none; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">⛳ 캐리골프투어 AI 상담실</div>
+
+    <div class="chat-window" id="chat-window">
+        <div class="message bot">
+            안녕하세요! 캐리골프투어 AI 상담원입니다.<br>
+            여행 상품이나 가격에 대해 물어봐 주세요.
+        </div>
+    </div>
+
+    <div class="typing-indicator" id="loader">AI가 답변을 작성 중입니다...</div>
+
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="질문을 입력하세요..." onkeypress="handleEnter(event)">
+        <button onclick="sendMessage()" id="send-btn">전송</button>
+    </div>
+</div>
+
+<script>
+    // [로직 정의] Flask API와 통신하는 부분
+    const chatWindow = document.getElementById('chat-window');
+    const userInput = document.getElementById('user-input');
+    const loader = document.getElementById('loader');
+    const sendBtn = document.getElementById('send-btn');
+
+    // 엔터키 입력 처리
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
+    // 메시지 화면에 추가
+    function addMessage(text, sender) {
+        const div = document.createElement('div');
+        div.classList.add('message', sender);
+        div.innerHTML = text.replace(/\n/g, '<br>'); // 줄바꿈 처리
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight; // 스크롤 하단 이동
+    }
+
+    // ★ API 통신 함수 (핵심)
+    async function sendMessage() {
+        const query = userInput.value.trim();
+        if (!query) return;
+
+        // 1. 사용자 메시지 표시
+        addMessage(query, 'user');
+        userInput.value = '';
+        userInput.disabled = true; // 중복 전송 방지
+        sendBtn.disabled = true;
+        loader.style.display = 'block';
+
+        try {
+            // 2. Flask 서버(/chat)로 데이터 전송
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            });
+
+            // 3. 응답 받기
+            const data = await response.json();
+
+            if (response.ok) {
+                addMessage(data.answer, 'bot');
+                // 디버깅: 실제 참고한 문서가 있다면 콘솔에 출력
+                if(data.ref_context) console.log("참고 데이터:", data.ref_context);
+            } else {
+                addMessage("오류가 발생했습니다: " + (data.error || "Unknown"), 'error');
+            }
+
+        } catch (err) {
+            console.error(err);
+            addMessage("서버 연결에 실패했습니다. (Backend가 켜져 있나요?)", 'error');
+        } finally {
+            // 4. 상태 복구
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            loader.style.display = 'none';
+            userInput.focus();
+        }
+    }
+</script>
+
+</body>
+</html>

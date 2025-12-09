@@ -1,187 +1,379 @@
+# services/parsing_service.py
+
 import os
-import pandas as pd
-import re
+import time
 import json
+import pandas as pd
 import pdfplumber
-import docx
-from docx.document import Document
+from docx import Document
+import google.generativeai as genai
+from pdf2image import convert_from_path
+
+# [수정됨] typing_extensions에서 TypedDict를 가져와야 Python 3.11 이하에서도 에러가 안 남
+from typing_extensions import TypedDict
+import typing  # List, Optional 등을 위해 유지
+
+# [환경 설정]
+# .env 파일에서 키를 로드합니다.
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+MODEL_NAME = "gemini-2.5-flash-lite"  # 혹은 1.5-flash
+
+# Poppler 경로 설정
+DEFAULT_POPPLER_PATH = r"C:\poppler\Library\bin"
+POPPLER_BIN_PATH = os.getenv("POPPLER_BIN_PATH", DEFAULT_POPPLER_PATH)
+
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
+try:
+    from docx2pdf import convert as docx_to_pdf_tool
+except ImportError:
+    docx_to_pdf_tool = None
 
 
-class ParsingService:
-    def parse_file(self, file_path):
-        """
-        파일을 읽어서 LLM이 이해하기 좋은 'Markdown 포맷'으로 전처리하여 반환합니다.
-        (AI 프롬프트 생성 단계 제외)
-        """
-        if not os.path.exists(file_path):
-            return {"error": "File not found"}
+# ==========================================
+# [스키마 정의] (수정됨: TypedDict 사용)
+# ==========================================
 
-        ext = file_path.split('.')[-1].lower()
-        raw_text_data = ""
+# [수정] typing.TypedDict -> TypedDict 로 변경
+class BasicInfo(TypedDict):
+    product_type: str | None
+    is_flight_included: bool | None
+    is_vat_included: bool | None
 
-        try:
-            if ext in ['xlsx', 'xls']:
-                raw_text_data = self._extract_excel_to_markdown(file_path)
-            elif ext == 'pdf':
-                raw_text_data = self._extract_pdf_to_markdown(file_path)
-            elif ext == 'docx':
-                raw_text_data = self._extract_word_to_markdown(file_path)
-            elif ext == 'txt':
-                raw_text_data = self._extract_text_pure(file_path)
-            else:
-                return {"error": "Unsupported format"}
 
-            # 전처리된 텍스트(Markdown)를 바로 반환
-            return raw_text_data
+class LocationInfo(TypedDict):
+    country: str | None
+    city: str | None
+    departure_port: str | None
 
-        except Exception as e:
-            return {"error": str(e)}
 
-    # ---------------------------------------------------------
-    # [전처리 엔진] 각 파일을 LLM이 좋아하는 'Markdown' 형태로 변환
-    # ---------------------------------------------------------
+class EventPeriod(TypedDict):
+    available_days: list[str]
 
-    def _extract_excel_to_markdown(self, file_path):
-        """
-        [최신 기법] 엑셀을 마크다운 표 형태로 변환
-        LLM은 '| 컬럼 | 값 |' 형태를 표로 완벽하게 인식합니다.
-        """
-        text_buffer = []
-        # openpyxl 엔진 사용, data_only=True로 수식 대신 값만 가져옴
-        # header=None: 첫 줄을 헤더로 잡지 않고 데이터로 처리 (Unnamed 방지)
-        xls = pd.read_excel(file_path, sheet_name=None, engine='openpyxl', header=None)
 
-        for sheet_name, df in xls.items():
-            text_buffer.append(f"\n## Sheet: {sheet_name}\n")
+class ProductInfo(TypedDict):
+    product_name: str | None
+    event_period: EventPeriod
 
-            # 데이터가 없는 경우 스킵
-            if df.empty:
-                continue
 
-            # 헤더가 엉망인 경우를 대비해 헤더를 없애고 모든 데이터를 내용으로 처리할 수도 있으나,
-            # 여기서는 결측치(NaN)를 빈칸으로 채우고 마크다운으로 변환
-            df = df.fillna("")
+class MetaInfoHotel(TypedDict):
+    check_in_out: str | None
+    website: str | None
 
-            # DataFrame을 Markdown Table로 변환 (tabulate가 없어도 pipe format 사용)
-            # to_markdown()을 쓰려면 tabulate 라이브러리가 필요하므로, 없으면 수동 변환
+
+class Hotel(TypedDict):
+    name_kr: str | None
+    description: str | None
+    meta_info: MetaInfoHotel
+
+
+class MetaInfoGolf(TypedDict):
+    detail_info: str | None
+    website: str | None
+    hole_info: str | None  # 예: "18홀/72파/6912Y"
+
+
+class GolfCourse(TypedDict):
+    name_kr: str | None
+    address: str | None  # 주소 (AI 지식 기반으로 채움)
+    operation_info: str | None
+    description: str | None  # 골프장 설명
+    meta_info: MetaInfoGolf
+
+
+class TouristSpot(TypedDict):
+    name: str | None
+
+
+class Details(TypedDict):
+    inclusions: list[str]
+    exclusions: list[str]
+    others: str | None
+    is_insurance_included: bool | None
+    is_guide_included: bool | None
+    special_notes: list[str]
+
+
+class AiContent(TypedDict):
+    body_text: str | None
+
+
+class FlightInfo(TypedDict):
+    airline: str | None
+    flight_number: str | None
+    departure_time: str | None
+    arrival_time: str | None
+
+
+class PriceInfo(TypedDict):
+    departure_date: str
+    night_count: int
+    day_count: int
+    group_size: int
+    price_adult: int
+    status: str
+
+
+class DailyMeal(TypedDict):
+    breakfast: str | None  # "포함", "불포함", "호텔식", "기내식" 등
+    lunch: str | None
+    dinner: str | None
+
+
+class DailySchedule(TypedDict):
+    day: int  # 1, 2, 3...
+    transport: str | None  # "전용택시", "항공", "버스" 등
+    time: str | None  # "08:00", "14:30" 등
+    description: str | None  # 일정 상세 설명
+    meals: DailyMeal | None
+
+
+class ItineraryOption(TypedDict):
+    option_name: str  # 예: "2박 3일", "3박 4일", "기본 일정"
+    schedules: list[DailySchedule]  # 해당 옵션의 일정 리스트
+
+
+# ★ 메인 스키마
+class TravelProductSchema(TypedDict):
+    basic_info: BasicInfo
+    location_info: LocationInfo
+    product_info: ProductInfo
+    hotels: list[Hotel]
+    golf_courses: list[GolfCourse]
+    tourist_spots: list[TouristSpot]
+    details: Details
+    ai_content: AiContent
+    flight_info: FlightInfo
+    price_info: list[PriceInfo]
+    itinerary_options: list[ItineraryOption]  # [변경] 기간별 일정 옵션 리스트
+
+
+# 가격표 전용 스키마
+class PriceListSchema(TypedDict):
+    prices: list[PriceInfo]
+
+
+# ==========================================
+# [클래스] 만능 여행 데이터 처리기
+# ==========================================
+class UniversalTravelAI:
+    def __init__(self):
+        if not GOOGLE_API_KEY:
+            print("⚠️ Warning: GOOGLE_API_KEY not found.")
+        self.model = genai.GenerativeModel(MODEL_NAME)
+
+    def _generate_with_retry(self, content, config, retries=3):
+        for i in range(retries):
             try:
-                # headers=[] 옵션으로 숫자 헤더(0, 1, 2...) 출력 방지
-                markdown_table = df.to_markdown(index=False, headers=[])
-            except (ImportError, TypeError):
-                # tabulate 라이브러리가 없는 환경을 위한 수동 변환
-                # header=False로 숫자 헤더 출력 방지
-                markdown_table = df.to_csv(sep="|", index=False, header=False)
+                return self.model.generate_content(
+                    content, generation_config=config, request_options={"timeout": 120}
+                )
+            except Exception as e:
+                if "429" in str(e) or "quota" in str(e).lower():
+                    wait_time = (i + 1) * 5
+                    print(f"   ⚠️ Quota Exceeded. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    raise e
+        return None
 
-            text_buffer.append(markdown_table)
-            text_buffer.append("\n---\n")
+    def _extract_text_content(self, file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+        print(f"   📄 [Text Extractor] Reading {ext} file...")
+        try:
+            if ext == '.pdf':
+                text = ""
+                with pdfplumber.open(file_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text: text += page_text + "\n"
+                return text
+            elif ext in ['.docx', '.doc']:
+                doc = Document(file_path)
+                return "\n".join([p.text for p in doc.paragraphs])
+            elif ext in ['.xlsx', '.xls']:
+                xls = pd.read_excel(file_path, sheet_name=None)
+                text = ""
+                for sheet, df in xls.items():
+                    text += f"--- Sheet: {sheet} ---\n"
+                    try:
+                        text += df.to_markdown(index=False) + "\n"
+                    except:
+                        text += df.to_string(index=False) + "\n"
+                return text
+            elif ext == '.txt':
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            return ""
+        except Exception as e:
+            print(f"   ❌ Text Extraction Failed: {e}")
+            return ""
 
-        return self._clean_text("\n".join(text_buffer))
+    def _convert_to_images(self, file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+        print(f"   🖼️ [Image Converter] Processing {ext} file...")
 
-    def _extract_pdf_to_markdown(self, file_path):
-        """
-        [최신 기법] PDF의 텍스트와 표를 분리하여 마크다운으로 재조립
-        """
-        text_buffer = []
-        with pdfplumber.open(file_path) as pdf:
-            for i, page in enumerate(pdf.pages):
-                text_buffer.append(f"\n### Page {i + 1}\n")
+        pdf_path = file_path
+        if ext in ['.docx', '.doc']:
+            try:
+                from docx2pdf import convert
+                pdf_path = os.path.splitext(file_path)[0] + ".pdf"
+                convert(file_path, pdf_path)
+            except:
+                return []
 
-                # 1. 텍스트 추출
-                text = page.extract_text()
-                if text:
-                    text_buffer.append(text)
-
-                # 2. 표 추출 및 마크다운 변환
-                tables = page.extract_tables()
-                for table in tables:
-                    if not table: continue
-
-                    # 표 시작 알림
-                    text_buffer.append("\n[Table Data]:")
-
-                    # 리스트 형태의 표를 마크다운 문자열로 변환
-                    # 예: [['이름', '나이'], ['홍길동', '20']] -> | 이름 | 나이 |\n|---|---|\n| 홍길동 | 20 |
-                    headers = table[0]
-                    rows = table[1:]
-
-                    # 헤더 처리
-                    header_str = "| " + " | ".join([str(h).replace('\n', ' ') if h else '' for h in headers]) + " |"
-                    separator = "| " + " | ".join(['---'] * len(headers)) + " |"
-                    text_buffer.append(header_str)
-                    text_buffer.append(separator)
-
-                    # 행 처리
-                    for row in rows:
-                        row_str = "| " + " | ".join([str(c).replace('\n', ' ') if c else '' for c in row]) + " |"
-                        text_buffer.append(row_str)
-                    text_buffer.append("\n")
-
-        return self._clean_text("\n".join(text_buffer))
-
-    def _extract_word_to_markdown(self, file_path):
-        """ Word 문서를 마크다운 구조로 변환 """
-        doc = docx.Document(file_path)
-        text_buffer = []
-
-        for element in doc.element.body:
-            if isinstance(element, docx.oxml.text.paragraph.CT_P):
-                para = docx.text.paragraph.Paragraph(element, doc)
-                if para.text.strip():
-                    text_buffer.append(para.text)
-            elif isinstance(element, docx.oxml.table.CT_Tbl):
-                table = docx.table.Table(element, doc)
-                text_buffer.append("\n[Table Data]:")
-
-                rows_data = []
-                for row in table.rows:
-                    row_cells = [cell.text.strip().replace('\n', ' ') for cell in row.cells]
-                    rows_data.append("| " + " | ".join(row_cells) + " |")
-
-                if rows_data:
-                    # 헤더 구분선 추가 (첫 줄을 헤더로 가정)
-                    text_buffer.append(rows_data[0])
-                    if len(rows_data) > 1:
-                        col_count = rows_data[0].count('|') - 1
-                        text_buffer.append("| " + " | ".join(['---'] * col_count) + " |")
-                        text_buffer.extend(rows_data[1:])
-                text_buffer.append("\n")
-
-        return self._clean_text("\n".join(text_buffer))
-
-    def _extract_text_pure(self, file_path):
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            return self._clean_text(f.read())
-
-    def _clean_text(self, text):
-        """
-        [전처리 핵심] LLM 토큰 절약을 위한 텍스트 클리닝
-        """
-        # 1. 연속된 공백 제거
-        text = re.sub(r' +', ' ', text)
-        # 2. 연속된 줄바꿈을 최대 2개로 제한 (문단 구분용)
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        # 3. 탭 문자 제거
-        text = text.replace('\t', ' ')
-        return text.strip()
+        if pdf_path.lower().endswith('.pdf'):
+            try:
+                use_poppler_path = POPPLER_BIN_PATH if os.name == 'nt' else None
+                return convert_from_path(pdf_path, dpi=300, poppler_path=use_poppler_path)
+            except Exception as e:
+                print(f"   ❌ PDF to Image failed: {e}")
+                return []
+        return []
 
     # ---------------------------------------------------------
-    # [호환성 메서드] 구버전 메서드명을 사용하는 호출을 위한 연결 (Alias)
-    # 기존 코드에서 _parse_excel 등을 호출해도 문제없도록 처리
+    # 메인 분석 메서드
     # ---------------------------------------------------------
-    def _parse_excel(self, file_path):
-        return self._extract_excel_to_markdown(file_path)
+    def analyze(self, product_file, price_file=None):
+        print(f"\n🚀 Analysis Started: {product_file}")
 
-    def _parse_pdf(self, file_path):
-        return self._extract_pdf_to_markdown(file_path)
+        # 1. 텍스트 추출
+        product_text = self._extract_text_content(product_file)
+        if not product_text:
+            return {"error": "상품 텍스트 추출 실패"}
 
-    def _parse_word(self, file_path):
-        return self._extract_word_to_markdown(file_path)
+        # 2. Gemini 상품 분석
+        product_data = self._call_gemini_product(product_text)
 
-    def _parse_txt(self, file_path):
-        return self._extract_text_pure(file_path)
+        # 3. 가격 분석
+        price_source = price_file if price_file else product_file
 
+        if not price_source or not os.path.exists(price_source):
+            if not product_data: product_data = {}
+            product_data['price_info'] = []
+            return product_data
 
-# ========================================================
-# 사용 예시
-# ========================================================
-parsing_manager = ParsingService()
+        price_ext = os.path.splitext(price_source)[1].lower()
+        price_list = []
+
+        if price_ext in ['.xlsx', '.xls', '.csv', '.txt']:
+            print("   -> [Strategy A] Excel/Text detected.")
+            raw_text = self._extract_text_content(price_source)
+            price_list = self._call_gemini_price_text(raw_text)
+        else:
+            print("   -> [Strategy B] PDF/Image detected.")
+            images = self._convert_to_images(price_source)
+            if images:
+                price_list = self._call_gemini_price_vision(images)
+            else:
+                print("   ⚠️ Vision failed. Fallback to Text Analysis.")
+                raw_text = self._extract_text_content(price_source)
+                price_list = self._call_gemini_price_text(raw_text)
+
+        if not product_data: product_data = {}
+        product_data['price_info'] = price_list
+
+        return product_data
+
+    # ---------------------------------------------------------
+    # Gemini Prompt
+    # ---------------------------------------------------------
+    def _call_gemini_product(self, text):
+        prompt = """
+        You are a generic travel product data parser.
+        Analyze the text and extract details into the JSON schema perfectly.
+
+        [MAPPING RULES - CRITICAL]
+
+        1. **Multiple Options Handling (Hotels/Golf)**:
+           - If the text lists multiple options (e.g., "3-star: A Hotel, 4-star: B Hotel" or "A CC, B CC, C CC"),
+             **extract ALL of them** as separate items in the `hotels` or `golf_courses` list.
+           - Do not merge them into one string. Create a list of objects.
+
+        2. **Itinerary Parsing - CRITICAL EXTRACTION RULES**:
+           - **Check if the PDF contains MULTIPLE versions of schedule tables** (e.g., "2박 3일" schedule, "3박 4일" schedule).
+           - **Separate and extract each schedule table** into different `ItineraryOption` objects.
+           - For each schedule option:
+             * `option_name`: Set to the period name found in the document (e.g., "2박 3일", "3박 4일", "4박 5일").
+             * If only ONE schedule table exists, set `option_name` to "기본 일정" and extract it as a single option.
+             * `schedules`: Array of `DailySchedule` objects for that option.
+           - For each day in a schedule, extract:
+             * `day`: Day number (1, 2, 3...)
+             * `transport`: Transportation method (e.g., "전용택시", "항공", "버스", "셔틀")
+             * `time`: Time information (e.g., "08:00", "14:30")
+             * `description`: Detailed description of the day's activities
+             * `meals`: Object with `breakfast`, `lunch`, `dinner` fields (values: "포함", "불포함", "호텔식", "기내식", "클럽식", "자유식" 등)
+           - If the document has a table format, parse each row as a day entry.
+           - **IMPORTANT**: If you find multiple schedule tables with different periods (e.g., "2박 3일 일정표", "3박 4일 일정표"), create separate `ItineraryOption` entries for each.
+
+        3. **Multiple Golf Courses**:
+           - Extract ALL golf courses mentioned in the document.
+           - Each golf course should be a separate object in the `golf_courses` list.
+           - Look for patterns like "에메랄드 CC", "시기라 베이", "18홀 라운딩" etc.
+
+        4. **Golf Details**:
+           - For each golf course, extract:
+             * `name_kr`: Golf course name (Korean or local name)
+             * `address`: Use your world knowledge to fill in the address based on the golf course name and location context (e.g., "일본 오키나와현 미야코지마시...")
+             * `operation_info`: Operating information (e.g., "티오프 7분 간격, 카트 필수")
+             * `description`: Description of the golf course (e.g., "바다와 맞닿은 아름다운 코스...")
+             * `meta_info.hole_info`: Hole information (e.g., "18홀/72파/6912Y")
+
+        5. **Flight Info**:
+           - Look for flight codes (e.g., LJ357, KE463, 7C, OZ) and times.
+           - If found, fill `flight_info` and set `is_flight_included` = True.
+
+        6. **Location**:
+           - If text contains "오키나와" or "미야코지마", set Country="일본".
+           - If text contains "베트남" or "다낭", set Country="베트남".
+
+        7. **AI Content Creation**:
+           - Read the whole text and write a summarizing marketing text in `ai_content.body_text`.
+           - It should highlight key selling points (e.g., hotel grade, golf course view).
+
+        8. **Language**:
+           - All text output MUST be in **Korean**.
+        """
+        try:
+            resp = self._generate_with_retry(
+                [prompt, text[:50000]],
+                genai.GenerationConfig(response_mime_type="application/json", response_schema=TravelProductSchema)
+            )
+            if resp:
+                data = json.loads(resp.text)
+                country = data.get("location_info", {}).get("country", "")
+                if country and any(x in country for x in ["한국", "대한민국", "제주", "Korea"]):
+                    data["basic_info"]["product_type"] = "국내상품"
+                else:
+                    data["basic_info"]["product_type"] = "해외상품"
+                return data
+            return {}
+        except Exception as e:
+            print(f"   ❌ Product Info Error: {e}")
+            return {}
+
+    def _call_gemini_price_text(self, text):
+        prompt = "Extract pricing table. Rows: Date, Price, Headcount. Date format: YYYY-MM-DD."
+        try:
+            resp = self._generate_with_retry(
+                [prompt, text[:30000]],
+                genai.GenerationConfig(response_mime_type="application/json", response_schema=PriceListSchema)
+            )
+            return json.loads(resp.text).get('prices', []) if resp else []
+        except:
+            return []
+
+    def _call_gemini_price_vision(self, images):
+        all_prices = []
+        for img in images[:5]:
+            try:
+                time.sleep(1.5)
+                resp = self._generate_with_retry(
+                    ["Extract price table. Output JSON only.", img],
+                    genai.GenerationConfig(response_mime_type="application/json", response_schema=PriceListSchema)
+                )
+                if resp: all_prices.extend(json.loads(resp.text).get('prices', []))
+            except:
+                continue
+        return all_prices

@@ -1,0 +1,303 @@
+import os
+import json
+import google.generativeai as genai
+from pdf2image import convert_from_path
+from PIL import Image
+from typing import Dict, Any, List
+
+# ==========================================
+# [설정]
+# ==========================================
+MY_API_KEY = "AIzaSyBRQJ1uVE5UVvB6jO6HvRhB5LTfWncsqN8"  # 본인의 API 키
+MODEL_NAME = "gemini-2.5-flash"
+genai.configure(api_key=MY_API_KEY, transport="rest")
+
+# ★ 중요: 아까 다운받은 Poppler의 bin 폴더 경로를 여기에 붙여넣으세요 ( \ 대신 / 사용 권장 )
+# 예시: r"C:\Start\poppler-24.02.0\Library\bin"
+POPPLER_BIN_PATH = r"C:\poppler\Library\bin"
+
+class TravelVisionAI:
+    def __init__(self):
+        self.model = genai.GenerativeModel(MODEL_NAME)
+        # Target Schema
+        self.target_schema = {
+            "basic_info": {"product_type": None, "is_flight_included": None, "is_vat_included": None},
+            "location_info": {"country": None, "city": None, "departure_port": None},
+            "product_info": {
+                "product_name": None,
+                "event_period": {"available_days": []}
+            },
+            "hotels": [{"name_kr": None, "description": None, "meta_info": {"check_in_out": None, "website": None}}],
+            "golf_courses": [{"name_kr": None, "operation_info": None, "meta_info": {"detail_info": None, "website": None}}],
+            "tourist_spots": [{"name": None}],
+            "details": {
+                "inclusions": [], "exclusions": [], "others": None,
+                "is_insurance_included": None, "is_guide_included": None,
+                "special_notes": []
+            },
+            "ai_content": {"body_text": None},
+            "flight_info": {"airline": None, "flight_number": None, "departure_time": None, "arrival_time": None},
+            "price_info": [] 
+        }
+
+    def _pdf_to_images(self, pdf_path):
+        print(f"   -> 변환 중: {os.path.basename(pdf_path)}")
+        try:
+            # [수정] dpi를 400으로 높여서 작은 숫자도 선명하게 인식하도록 함
+            return convert_from_path(pdf_path, dpi=400, poppler_path=POPPLER_BIN_PATH)
+        except Exception as e:
+            print(f"❌ Poppler 에러: {e}")
+            return []
+
+    def process(self, product_pdf: str, price_pdf: str = None):
+        print(">>> [1/3] 문서 이미지 변환 중...")
+        prod_images = self._pdf_to_images(product_pdf)
+        price_images = self._pdf_to_images(price_pdf) if price_pdf else []
+        
+        if not prod_images:
+            return {"error": "상품 PDF 변환 실패"}
+
+        print(">>> [2/3] Gemini Vision 분석 중...")
+        
+        # 상품 정보 추출
+        product_json = self._extract_product_info(prod_images)
+        
+        # 가격 정보 추출
+        target_images = price_images if price_images else prod_images
+        price_json = self._extract_price_info(target_images)
+        
+        print(">>> [3/3] 데이터 병합 중...")
+        final_data = self._merge(product_json, price_json)
+        return final_data
+
+    def _extract_product_info(self, images):
+        # [수정] product_type 분류 로직 추가 (Prompt + Python Logic)
+        prompt = f"""
+        Role: Travel Product Analyst.
+        Task: Analyze the images and extract product details into JSON.
+        
+        [CRITICAL LANGUAGE RULES]
+        1. **OUTPUT VALUES MUST BE IN KOREAN.** (e.g., "Japan"->"일본")
+        2. **DO NOT TRANSLATE KEYS.**
+        
+        [Extraction Focus]
+        1. **Location**: Identify the `country` and `city` accurately.
+           - If `country` is South Korea, map as "한국".
+        2. **Product Type Logic**:
+           - If `country` is "한국" (or Jeju), set `product_type` to "국내상품".
+           - Otherwise, set `product_type` to "해외상품".
+        3. **Flight Info**: Look specifically for flight codes (LJ, KE, TW, etc.) and times.
+        4. Flight Status: Set is_flight_included to "포함" if flight codes are present, otherwise "불포함".
+        
+        [Target JSON Schema]
+        {json.dumps(self.target_schema, ensure_ascii=False)}
+        """
+        try:
+            content = [prompt] + images
+            res = self.model.generate_content(
+                content,
+                generation_config={"response_mime_type": "application/json"},
+                request_options={"timeout": 120}
+            )
+            data = json.loads(res.text)
+            
+            # 1. 리스트로 반환될 경우 첫 번째 요소 추출
+            if isinstance(data, list):
+                data = data[0] if len(data) > 0 else {}
+
+            # ==========================================================
+            # [Python 후처리] product_type 강제 보정 로직
+            # AI가 헷갈려도 여기서 확실하게 잡아줍니다.
+            # ==========================================================
+            country = data.get("location_info", {}).get("country", "")
+            if country:
+                # 한국 관련 키워드가 있으면 국내상품
+                if any(x in country for x in ["한국", "대한민국", "제주", "Korea"]):
+                    data["basic_info"]["product_type"] = "국내상품"
+                    # 혹시 국가명이 'Korea'로 되어있으면 '한국'으로 통일
+                    data["location_info"]["country"] = "한국"
+                else:
+                    # 그 외에는 모두 해외상품
+                    data["basic_info"]["product_type"] = "해외상품"
+            
+            return data
+            
+        except Exception as e:
+            print(f"Product Extract Error: {e}")
+            return {}
+            
+    def _extract_price_info(self, images):
+        all_prices = []
+        seen_entries = set() # 중복 데이터 방지용 키 저장소
+
+        print(f"   -> 총 {len(images)}장의 가격표 이미지를 분석합니다 (스마트 레이아웃 적용).")
+
+        for page_idx, full_img in enumerate(images):
+            width, height = full_img.size
+            
+            # [전략 변경] 가로(좌우)는 자르지 않습니다! (글자 잘림 방지)
+            # 대신 세로(상하)만 겹치게 잘라서 해상도를 확보합니다.
+            # 데이터가 적으면 굳이 자르지 않아도 되지만, 1년치 데이터는 길기 때문에 상하 분할 추천.
+            
+            # 상하 분할 (중간 20% 중첩)
+            split_point_1 = int(height * 0.6)
+            split_point_2 = int(height * 0.4)
+            
+            # 만약 이미지가 너무 작으면(높이 1000px 이하) 굳이 자르지 않음
+            if height < 1000:
+                chunks = [(full_img, f"Page {page_idx+1} (Full)")]
+            else:
+                chunks = [
+                    (full_img.crop((0, 0, width, split_point_1)), f"Page {page_idx+1} (Top Section)"),
+                    (full_img.crop((0, split_point_2, width, height)), f"Page {page_idx+1} (Bottom Section)")
+                ]
+            
+            print(f"      Running Page {page_idx + 1}...")
+
+            for chunk_idx, (img_chunk, position) in enumerate(chunks):
+                
+                # [핵심 프롬프트] 다단(Multi-Column) 레이아웃 인식 지시
+                prompt = f"""
+                Role: Travel Price Analyst.
+                Task: Extract **ALL** pricing data from the image into CSV format.
+                
+                [CRITICAL LAYOUT INSTRUCTION]
+                1. **Multi-Column Detection**: The image may contain **multiple tables arranged side-by-side** (e.g., 2 or 3 columns of tables).
+                2. **Scan Order**: Read the tables from **Left -> Right**, and within each table, read **Top -> Bottom**.
+                3. **Do Not Miss**: You must extract data from ALL columns/tables visible in the image.
+
+                [Output Format]
+                1. **Format**: CSV only (No JSON, No Markdown).
+                2. **Columns**: `departure_date, night_count, day_count, group_size, price_adult`
+                3. **Separator**: Comma (`,`)
+
+                [Data Rules]
+                1. **departure_date**: YYYY-MM-DD. (Treat Red/Black text equally).
+                2. **night/day**: Integer only.
+                3. **group_size**: Integer. If header says "4인", apply to all rows below.
+                4. **price_adult**: Integer (remove commas).
+                """
+                
+                try:
+                    res = self.model.generate_content(
+                        [prompt, img_chunk],
+                        generation_config={
+                            "max_output_tokens": 8192,
+                            "temperature": 0.0 # 정확도 최우선
+                        },
+                        request_options={"timeout": 120}
+                    )
+                    
+                    csv_text = res.text.strip()
+                    
+                    # 파싱 로직 (중복 제거 포함)
+                    new_rows = self._parse_csv_to_json(csv_text, seen_entries)
+                    
+                    if new_rows:
+                        all_prices.extend(new_rows)
+                        print(f"         ✅ {position}: Extracted {len(new_rows)} rows.")
+                    else:
+                        print(f"         ⚠️ {position}: No new data found.")
+
+                except Exception as e:
+                    print(f"         ❌ {position} Error: {e}")
+                    continue
+
+        # 날짜순 정렬
+        all_prices.sort(key=lambda x: x['departure_date'])
+        
+        return {
+            "global_updates": {"is_vat_included": None, "cancellation_refund": None}, 
+            "price_info": all_prices
+        }
+
+    def _parse_csv_to_json(self, csv_text, seen_entries):
+        """CSV 텍스트 파싱 및 중복 제거"""
+        rows = []
+        lines = csv_text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            # 헤더나 쓰레기 값 건너뛰기
+            if "date" in line.lower() or "price" in line.lower(): continue
+            
+            parts = line.split(',')
+            if len(parts) < 5: continue
+            
+            try:
+                # 1. 날짜 정규화
+                raw_date = parts[0].strip()
+                clean_date = raw_date.replace('.', '-').replace('/', '-')
+                date_parts = clean_date.split('-')
+                
+                # 23-11-01 -> 2023-11-01 보정
+                if len(date_parts) == 3:
+                    if len(date_parts[0]) == 2: date_parts[0] = "20" + date_parts[0]
+                    clean_date = f"{date_parts[0]}-{int(date_parts[1]):02d}-{int(date_parts[2]):02d}"
+                else:
+                    # 날짜 형식이 파괴된 경우 스킵
+                    continue 
+
+                # 2. 숫자 추출
+                night = int(re.sub(r'\D', '', parts[1]))
+                day = int(re.sub(r'\D', '', parts[2]))
+                group = int(re.sub(r'\D', '', parts[3]))
+                price = int(re.sub(r'\D', '', parts[4]))
+                
+                # 3. 중복 체크 (날짜+인원+박수+가격이 같으면 동일 데이터로 간주)
+                unique_key = f"{clean_date}_{night}_{day}_{group}_{price}"
+                
+                if unique_key not in seen_entries:
+                    seen_entries.add(unique_key)
+                    rows.append({
+                        "departure_date": clean_date,
+                        "night_count": night,
+                        "day_count": day,
+                        "group_size": group,
+                        "price_adult": price,
+                        "status": "available"
+                    })
+            except Exception:
+                continue
+                
+        return rows
+            
+    def _merge(self, prod, price):
+        # 방어 코드: prod가 여전히 dict가 아니면 빈 dict로 초기화
+        if not isinstance(prod, dict): prod = {}
+        if not isinstance(price, dict): price = {}
+
+        # 1. 가격 리스트 병합
+        prod["price_info"] = price.get("price_info", [])
+        
+        # 2. 글로벌 정책 업데이트
+        updates = price.get("global_updates", {})
+        
+        # basic_info 키가 없으면 생성 (방어 코드)
+        if "basic_info" not in prod: prod["basic_info"] = {}
+        if "policies" not in prod: prod["policies"] = {}
+
+        if updates.get("is_vat_included") is not None:
+            prod["basic_info"]["is_vat_included"] = updates["is_vat_included"]
+            
+        if updates.get("cancellation_refund"):
+            prod["policies"]["cancellation_refund"] = updates["cancellation_refund"]
+            
+        return prod
+# --- 실행 ---
+if __name__ == "__main__":
+    # 엑셀 파일은 '다른 이름으로 저장 > PDF'로 변환해서 테스트하세요.
+    PRODUCT_FILE = "../ERP 필요한 데이터/1. 랜드사한테 받은 상품_완료/상품/test.pdf"  # 상품설명서 (pdf, docx 등)
+    PRICE_FILE = "../ERP 필요한 데이터/1. 랜드사한테 받은 상품_완료/가격표/text.pdf"    # 엑셀을 PDF로 변환한 파일
+
+if os.path.exists(PRODUCT_FILE) and os.path.exists(PRICE_FILE):
+    ai = TravelVisionAI()
+    result = ai.process(PRODUCT_FILE, PRICE_FILE)
+    
+    print("\n" + "="*50)
+    print("🎯 FINAL JSON RESULT")
+    print("="*50)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+else:
+    print("❌ 파일 경로를 확인해주세요.")

@@ -4,6 +4,14 @@ import os
 
 app = Flask(__name__)
 
+# 데이터베이스 초기화 (서버 시작 시 테이블 생성)
+try:
+    from services.models import init_db
+    init_db()
+except Exception as e:
+    print(f"⚠️  Warning: Database initialization failed: {e}")
+    print("   Make sure MySQL is running and travel_erp database exists.")
+
 # Register Blueprints
 app.register_blueprint(product.bp)
 app.register_blueprint(reservation.bp)
@@ -87,15 +95,6 @@ def settings_page():
 def analyze_product_text():
     # ... implementation ...
     return jsonify({}) # Placeholder if needed, or import from routes
-
-# Keep original routes for backward compatibility if needed, but mapped to new templates if possible
-# or just keep them as API endpoints if they were used for that.
-# The original code imported blueprints. I should keep using blueprints if I want to keep the logic clean,
-# but for now I am replacing the route definitions.
-# Actually, the original code registered blueprints. I should probably keep that structure if possible,
-# but the user wants "design exactly" which implies the frontend navigation works.
-# The blueprints were for /api/product etc.
-# I will keep the blueprint registration and just add the page routes.
 
 if __name__ == '__main__':
     # Ensure models directory exists to avoid startup errors if empty

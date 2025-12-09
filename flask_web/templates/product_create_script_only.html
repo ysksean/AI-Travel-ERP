@@ -1,0 +1,609 @@
+{% block scripts %}
+<script>
+console.log("Product Create Script Loaded");
+
+// ==========================================
+// 1. [핵심] 파일 업로드 & 데이터 매핑 핸들러 (Backend 연동)
+// ==========================================
+let selectedProductFile = null;
+let selectedPriceFile = null;
+
+window.handleFileSelect = function(type, input) {
+    try {
+        const file = input.files[0];
+        if (!file) return;
+
+        console.log(`File selected: ${type}, ${file.name}`);
+
+        if (type === 'product') {
+            selectedProductFile = file;
+            const infoDiv = document.getElementById('quotationFileInfo');
+            const fileNameSpan = document.getElementById('quotationFileName');
+            const statusText = document.getElementById('quotationStatusText');
+            const statusIcon = document.getElementById('quotationStatusIcon');
+
+            infoDiv.classList.remove('hidden', 'bg-red-50', 'border-red-100', 'bg-green-50', 'border-green-100', 'animate-pulse');
+            infoDiv.classList.add('bg-white', 'border-slate-200');
+            fileNameSpan.textContent = file.name;
+            statusText.textContent = "분석 대기 중";
+            statusText.className = "text-xs text-slate-500 font-bold";
+            statusIcon.setAttribute('data-lucide', 'file-text');
+            statusIcon.classList.remove('animate-spin', 'text-indigo-600', 'text-green-600', 'text-red-600');
+            statusIcon.classList.add('text-slate-400');
+            if (window.lucide) lucide.createIcons();
+        } else if (type === 'price') {
+            selectedPriceFile = file;
+            const infoDiv = document.getElementById('landFileInfo');
+            const fileNameSpan = document.getElementById('landFileName');
+            if (infoDiv) {
+                infoDiv.classList.remove('hidden');
+                fileNameSpan.textContent = file.name;
+            }
+        }
+    } catch (error) {
+        console.error("File selection error:", error);
+    }
+}
+
+window.startAIAnalysis = async function() {
+    console.log("startAIAnalysis called");
+    if (!selectedProductFile) {
+        alert("상품 견적서 파일을 먼저 선택해주세요.");
+        return;
+    }
+
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+
+    const infoDiv = document.getElementById('quotationFileInfo');
+    const statusText = document.getElementById('quotationStatusText');
+    const statusIcon = document.getElementById('quotationStatusIcon');
+
+    if (infoDiv) {
+        infoDiv.classList.remove('bg-white', 'border-slate-200');
+        infoDiv.classList.add('bg-indigo-50', 'border-indigo-100', 'animate-pulse');
+        statusText.textContent = "AI 분석 중...";
+        statusText.className = "text-xs text-indigo-600 font-bold";
+        statusIcon.setAttribute('data-lucide', 'loader-2');
+        statusIcon.classList.add('animate-spin', 'text-indigo-600');
+        statusIcon.classList.remove('text-slate-400');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('product_file', selectedProductFile);
+        if (selectedPriceFile) {
+            formData.append('price_file', selectedPriceFile);
+        }
+
+        console.log("Sending request to /product/analyze");
+        const response = await fetch('/product/analyze', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        console.log("Response:", result);
+
+        if (!response.ok) throw new Error(result.message || "Server Error");
+
+        if (result.status === 'success' || result.data) {
+            const data = result.data || result;
+            console.log("Mapped DB Data:", data);
+
+            // === [HTML Mapping Start] ===
+            // 1. 기본 및 위치 정보
+            if (data.product_info?.product_name) {
+                setValByPlaceholder("고객에게 보여질 매력적인 상품명을 입력하세요", data.product_info.product_name);
+            }
+
+            const country = data.location_info?.country || '';
+            const city = data.location_info?.city || '';
+            if (country || city) {
+                setValByPlaceholder("예: 베트남 다낭", `${country} ${city}`.trim());
+            }
+
+            if (data.location_info?.departure_port) {
+                const portSelect = document.getElementById('departureCity');
+                if (portSelect) portSelect.value = data.location_info.departure_port;
+            }
+
+            if (data.basic_info?.product_type) {
+                const pType = data.basic_info.product_type.includes("국내") ? "domestic" : "overseas";
+                const radio = document.querySelector(`input[name="product_type"][value="${pType}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    toggleChip(radio.closest('label'));
+                }
+            }
+
+            // 2. 가격 및 일정
+            if (data.price_info && data.price_info.length > 0) {
+                const firstPrice = data.price_info[0];
+                if (firstPrice.night_count) document.getElementById('nightsInput').value = firstPrice.night_count;
+                if (firstPrice.day_count) document.getElementById('daysInput').value = firstPrice.day_count;
+
+                const priceInputs = document.querySelectorAll('.price-input');
+                if (priceInputs.length >= 2 && firstPrice.price_adult) {
+                    const price = parseInt(firstPrice.price_adult);
+                    priceInputs[0].value = price.toLocaleString();
+                    priceInputs[1].value = Math.floor(price * 0.9).toLocaleString();
+                }
+
+                window.currentPriceData = data.price_info;
+
+                if (firstPrice.departure_date) {
+                    const [y, m, d] = firstPrice.departure_date.split('-').map(Number);
+                    window.currentDate = new Date(y, m - 1, 1);
+                }
+                renderCalendar(window.currentDate, data.price_info);
+            }
+
+            // 3. 호텔 정보
+            if (data.hotels && data.hotels.length > 0) {
+                const hotel = data.hotels[0];
+                setValByPlaceholder("예: 다낭 메리어트 리조트", hotel.name_kr || '');
+                setValByPlaceholder("호텔 특징 및 수영장, 레스토랑 등 부대시설 입력", hotel.description || '');
+                if (hotel.meta_info) {
+                    setValByPlaceholder("15:00 / 11:00", hotel.meta_info.check_in_out);
+                    setValByPlaceholder("웹사이트/전화번호", hotel.meta_info.website);
+                }
+                document.getElementById('hotelInfoSection').classList.remove('hidden');
+            }
+
+            // 4. 골프장 정보
+            if (data.golf_courses && data.golf_courses.length > 0) {
+                const golf = data.golf_courses[0];
+                const golfNameInputs = document.querySelectorAll('input');
+                for (let inp of golfNameInputs) {
+                    if (inp.closest('#golfInfoSection')) {
+                        if (inp.placeholder.includes("골프장명")) inp.value = golf.name_kr || '';
+                        if (inp.placeholder.includes("운영 정보")) inp.value = golf.operation_info || '';
+                    }
+                }
+                document.getElementById('golfInfoSection').classList.remove('hidden');
+            }
+
+            // 5. 포함/불포함 조건
+            if (data.details) {
+                if (data.details.inclusions) setValByPlaceholder("- 왕복 항공권", data.details.inclusions.join('\n'));
+                if (data.details.exclusions) setValByPlaceholder("- 가이드/기사 경비", data.details.exclusions.join('\n'));
+                const notes = [];
+                if (data.details.others) notes.push(data.details.others);
+                if (data.details.special_notes) notes.push(data.details.special_notes.join(', '));
+                if (notes.length > 0) setValByPlaceholder("쇼핑 3회, 선택관광 정보 등", notes.join("\n"));
+            }
+
+            // 6. 항공 정보
+            if (data.flight_info) {
+                const fullFlightStr = `${data.flight_info.airline || ''} ${data.flight_info.flight_number || ''} ${data.flight_info.departure_time || ''} 출발`.trim();
+                setValByPlaceholder("예: 대한항공 KE463 18:00 출발", fullFlightStr);
+            }
+
+            // 7. AI 콘텐츠
+            if (data.ai_content?.body_text) {
+                const editor = document.getElementById('editorBlocks');
+                if (editor) {
+                    editor.innerHTML = '';
+                    const paragraphs = data.ai_content.body_text.split('\n');
+                    paragraphs.forEach(p => {
+                        if (p.trim()) addTextBlock(p.trim());
+                    });
+                }
+            }
+
+            // 성공 UI
+            if (infoDiv) {
+                infoDiv.classList.remove('animate-pulse', 'bg-indigo-50', 'border-indigo-100');
+                infoDiv.classList.add('bg-green-50', 'border-green-100');
+                statusText.textContent = "분석 완료!";
+                statusText.className = "text-xs text-green-600 font-bold";
+                statusIcon.setAttribute('data-lucide', 'check-circle');
+                statusIcon.classList.remove('animate-spin', 'text-indigo-600');
+                statusIcon.classList.add('text-green-600');
+                if (window.lucide) lucide.createIcons();
+            }
+
+            if (overlay) overlay.classList.add('hidden');
+
+        } else {
+            throw new Error("데이터 분석 결과가 비어있습니다.");
+        }
+
+    } catch (error) {
+        console.error(error);
+        alert("분석 중 오류가 발생했습니다: " + error.message);
+
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.add('hidden');
+
+        const infoDiv = document.getElementById('quotationFileInfo');
+        const statusText = document.getElementById('quotationStatusText');
+        const statusIcon = document.getElementById('quotationStatusIcon');
+
+        if (infoDiv) {
+            infoDiv.classList.remove('animate-pulse', 'bg-indigo-50', 'border-indigo-100');
+            infoDiv.classList.add('bg-red-50', 'border-red-100');
+            statusText.textContent = "오류 발생";
+            statusText.className = "text-xs text-red-600 font-bold";
+            statusIcon.setAttribute('data-lucide', 'alert-circle');
+            statusIcon.classList.remove('animate-spin', 'text-indigo-600');
+            statusIcon.classList.add('text-red-600');
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+// Helper: Placeholder 텍스트로 input 찾아서 값 설정
+function setValByPlaceholder(placeholderPart, value) {
+    if (!value) return;
+    const inputs = document.querySelectorAll('input, textarea');
+    for (const el of inputs) {
+        if (el.placeholder && el.placeholder.includes(placeholderPart)) {
+            el.value = value;
+            return;
+        }
+    }
+}
+
+// ==========================================
+// 2. 달력 (일정 시각화)
+// ==========================================
+window.currentDate = new Date();
+window.currentPriceData = [];
+
+window.renderCalendar = function(baseDate = window.currentDate, priceData = window.currentPriceData) {
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+
+    const title = document.getElementById('calendarTitle');
+    if (title) title.textContent = `${year}년 ${month + 1}월`;
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const grid = document.getElementById('calendarGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (let i = 0; i < firstDay.getDay(); i++) {
+        grid.appendChild(document.createElement('div'));
+    }
+
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const cell = document.createElement('div');
+        cell.className = 'aspect-square flex flex-col items-center justify-center rounded-lg text-sm cursor-pointer hover:bg-slate-50 transition-colors border border-transparent';
+
+        const numSpan = document.createElement('span');
+        numSpan.textContent = d;
+        cell.appendChild(numSpan);
+
+        if (priceData && priceData.length > 0) {
+            const info = priceData.find(p => p.departure_date === dateStr);
+            if (info) {
+                cell.classList.add('bg-indigo-50', 'border-indigo-100');
+                cell.querySelector('span').classList.add('font-bold', 'text-indigo-700');
+
+                const priceDot = document.createElement('div');
+                priceDot.className = 'w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1';
+                cell.appendChild(priceDot);
+
+                if (info.price_adult) {
+                    cell.title = `${Number(info.price_adult).toLocaleString()}원`;
+                }
+            }
+        }
+        grid.appendChild(cell);
+    }
+}
+
+window.changeMonth = function(delta) {
+    window.currentDate.setMonth(window.currentDate.getMonth() + delta);
+    renderCalendar(window.currentDate, window.currentPriceData);
+}
+
+// ==========================================
+// 3. UI 유틸리티 (기존 기능 유지)
+// ==========================================
+
+const dummyDB = {
+    hotel: [
+        { name: "하얏트 리젠시 다낭", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=100", desc: "5성급 • 논누옥 비치", loc: "다낭, 베트남" },
+        { name: "빈펄 리조트 & 스파", image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=100", desc: "5성급 • 프라이빗 풀빌라", loc: "호이안, 베트남" },
+    ],
+    golf: [
+        { name: "다낭 CC", image: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?auto=format&fit=crop&q=80&w=100", desc: "18홀 • 듄스 코스", loc: "다낭" },
+    ],
+    sightseeing: [
+        { name: "바나힐 투어", image: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&q=80&w=100", desc: "테마파크 • 케이블카", loc: "다낭" },
+    ]
+};
+
+window.resetItinerary = function() {
+    if (confirm('정말로 일정을 초기화하시겠습니까?')) {
+        generateTimeline();
+    }
+}
+
+window.regenerateItinerary = async function() {
+    const btn = document.getElementById('regenerateBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin" size="14"></i> 생성 중...';
+    if (window.lucide) lucide.createIcons();
+    await new Promise(r => setTimeout(r, 1000));
+    generateTimeline();
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+    if (window.lucide) lucide.createIcons();
+}
+
+window.generateTimeline = function() {
+    const daysInput = document.getElementById('daysInput');
+    const container = document.getElementById('timelineContainer');
+    const days = parseInt(daysInput.value) || 3;
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (let i = 1; i <= days; i++) {
+        const template = document.getElementById('daySectionTemplate').content.cloneNode(true);
+        template.querySelector('.day-title').textContent = `Day ${i}`;
+        template.querySelector('.event-list').dataset.day = i;
+
+        new Sortable(template.querySelector('.event-list'), {
+            group: 'shared',
+            animation: 150,
+            ghostClass: 'bg-indigo-50',
+            handle: '.event-card'
+        });
+        container.appendChild(template);
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+window.addEvent = function(btn, type) {
+    const selector = btn.closest('.type-selector');
+    const daySection = btn.closest('.day-section');
+    const eventList = daySection.querySelector('.event-list');
+    const div = document.createElement('div');
+
+    let contentHTML = '';
+    let icon = '';
+
+    if (type === 'flight') {
+        icon = '✈️';
+        contentHTML = document.getElementById('flightContent').innerHTML;
+    } else if (type === 'hotel') {
+        icon = '🏨';
+        contentHTML = document.getElementById('hotelContent').innerHTML;
+    } else if (type === 'golf') {
+        icon = '⛳';
+        contentHTML = document.getElementById('golfContent').innerHTML;
+    } else if (type === 'sightseeing') {
+        icon = '📷';
+        contentHTML = document.getElementById('hybridContent').innerHTML;
+    } else if (type === 'meal') {
+        icon = '🍽️';
+        contentHTML = `<input type="text" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none" placeholder="식사 장소/메뉴 입력">`;
+    } else {
+        icon = '📝';
+        contentHTML = `<input type="text" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-indigo-500 outline-none" placeholder="일정 내용 입력">`;
+    }
+
+    div.innerHTML = `
+        <div class="event-card group bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-300 transition-all shadow-sm cursor-move" data-category="${type}">
+            <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-lg event-icon">${icon}</div>
+                <div class="flex-1 event-content">${contentHTML}</div>
+                <button type="button" onclick="this.closest('.event-card').remove()" class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" size="16"></i></button>
+            </div>
+        </div>`;
+
+    const card = div.firstElementChild;
+    const imageGrid = card.querySelector('.card-image-grid');
+    if (imageGrid) new Sortable(imageGrid, { animation: 150, ghostClass: 'bg-indigo-50' });
+
+    eventList.appendChild(card);
+    selector.classList.add('hidden');
+    if (window.lucide) lucide.createIcons();
+}
+
+window.showTypeSelector = function(btn) {
+    const selector = btn.nextElementSibling;
+    selector.classList.remove('hidden');
+    document.querySelectorAll('.type-selector').forEach(el => {
+        if (el !== selector) el.classList.add('hidden');
+    });
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.relative')) {
+        document.querySelectorAll('.type-selector').forEach(el => el.classList.add('hidden'));
+    }
+});
+
+window.toggleMode = function(btn) {
+    const container = btn.closest('.event-content');
+    const searchMode = container.querySelector('.mode-search');
+    const manualMode = container.querySelector('.mode-manual');
+    if (searchMode.classList.contains('hidden')) {
+        searchMode.classList.remove('hidden');
+        manualMode.classList.add('hidden');
+    } else {
+        searchMode.classList.add('hidden');
+        manualMode.classList.remove('hidden');
+    }
+}
+
+window.handleSearch = function(input) {
+    const query = input.value.toLowerCase();
+    const container = input.closest('.mode-search');
+    const resultsDiv = container.querySelector('.search-results');
+    const card = input.closest('.event-card');
+    const category = card.dataset.category || 'sightseeing';
+
+    if (query.length < 1) { resultsDiv.classList.add('hidden'); return; }
+
+    const data = dummyDB[category] || [];
+    const filtered = data.filter(item => item.name.toLowerCase().includes(query));
+
+    resultsDiv.innerHTML = filtered.map(item => `
+        <div class="p-3 hover:bg-indigo-50 cursor-pointer flex gap-3 items-center transition-colors"
+            onclick='selectItem(this, ${JSON.stringify(item)})'>
+            <img src="${item.image}" class="w-10 h-10 rounded object-cover bg-slate-200" />
+            <div>
+                <div class="font-bold text-slate-800 text-sm">${item.name}</div>
+                <div class="text-xs text-slate-500">${item.desc}</div>
+            </div>
+        </div>
+    `).join('');
+    resultsDiv.classList.remove('hidden');
+}
+
+window.selectItem = function(el, item) {
+    const container = el.closest('.mode-search');
+    const input = container.querySelector('.search-input');
+    const resultsDiv = container.querySelector('.search-results');
+    const preview = container.querySelector('.preview-card');
+
+    input.value = item.name;
+    resultsDiv.classList.add('hidden');
+    preview.querySelector('img').src = item.image;
+    preview.querySelector('.preview-name').textContent = item.name;
+    preview.querySelector('.preview-desc').textContent = item.desc;
+    preview.querySelector('.preview-loc span').textContent = item.loc;
+    preview.classList.remove('hidden');
+}
+
+window.handleLandFile = function(input) {}
+window.clearLandFile = function() {
+    document.getElementById('landFile').value = '';
+    document.getElementById('landFileInfo').classList.add('hidden');
+    selectedPriceFile = null;
+}
+window.clearQuotationFile = function() {
+    document.getElementById('topQuotationInput').value = '';
+    document.getElementById('quotationFileInfo').classList.add('hidden');
+    selectedProductFile = null;
+}
+
+window.handleHeroImages = function(input) {
+    const grid = document.getElementById('heroImageGrid');
+    const files = Array.from(input.files);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const div = document.createElement('div');
+            div.className = 'relative group aspect-square rounded-xl overflow-hidden border border-slate-200';
+            div.innerHTML = `
+                <img src="${e.target.result}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button type="button" onclick="this.closest('div.relative').remove()" class="p-2 bg-white/90 rounded-full text-red-500 hover:bg-white transition-colors">
+                        <i data-lucide="trash-2" size="16"></i>
+                    </button>
+                </div>`;
+            grid.appendChild(div);
+            if (window.lucide) lucide.createIcons();
+        };
+        reader.readAsDataURL(file);
+    });
+    input.value = '';
+}
+
+window.handleCardImages = function(input) {
+    const grid = input.closest('.grid-cols-1').querySelector('.card-image-grid');
+    input.value = '';
+}
+
+window.formatPrice = function(input) {
+    let value = input.value.replace(/\D/g, '');
+    if (value) input.value = parseInt(value).toLocaleString();
+}
+
+window.toggleChip = function(label) {
+    const container = label.parentElement;
+    container.querySelectorAll('label').forEach(l => {
+        l.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+        l.classList.add('text-slate-500');
+    });
+    label.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+    label.classList.remove('text-slate-500');
+}
+
+window.fillAllPolicies = function() {
+    document.getElementById('safetyPolicy').value = "- 현지 기상 악화 시 일정이 변경될 수 있습니다.\n- 개인 소지품 분실에 주의하시기 바랍니다.";
+    document.getElementById('refundPolicy').value = "- 여행 개시 30일 전까지 통보 시: 계약금 환급\n- 여행 개시 20일 전까지 통보 시: 여행요금의 10% 배상";
+}
+
+window.generateAIContent = function() {
+    alert("AI 내용 자동 생성 기능은 아직 준비 중입니다.");
+}
+
+window.submitForm = function(status) {
+    document.getElementById('saveStatus').value = status;
+    alert(`상품이 ${status === 'draft' ? '임시저장' : '게시'} 되었습니다. (실제 저장 API 연동 필요)`);
+}
+
+const editorBlocks = document.getElementById('editorBlocks');
+const textBlockTemplate = document.getElementById('textBlockTemplate');
+const imageBlockTemplate = document.getElementById('imageBlockTemplate');
+if (editorBlocks && typeof Sortable !== 'undefined') {
+    new Sortable(editorBlocks, { animation: 150, handle: '.editor-block', ghostClass: 'bg-indigo-50' });
+}
+
+window.addTextBlock = function(content = '') {
+    const clone = textBlockTemplate.content.cloneNode(true);
+    if (content) clone.querySelector('textarea').value = content;
+    editorBlocks.appendChild(clone);
+    if (window.lucide) lucide.createIcons();
+}
+
+window.addImageBlock = function() {
+    const clone = imageBlockTemplate.content.cloneNode(true);
+    if (clone.querySelector('.image-grid')) {
+        new Sortable(clone.querySelector('.image-grid'), { animation: 150, ghostClass: 'bg-indigo-50' });
+    }
+    editorBlocks.appendChild(clone);
+    if (window.lucide) lucide.createIcons();
+}
+
+window.addImagesToBlock = function(input) {
+    const block = input.closest('.editor-block');
+    const grid = block.querySelector('.image-grid');
+    const files = Array.from(input.files);
+    
+    files.forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const div = document.createElement('div');
+            div.className = 'relative group aspect-square rounded-lg overflow-hidden border border-slate-200';
+            div.innerHTML = `
+                <img src="${e.target.result}" class="w-full h-full object-cover">
+                <button type="button" onclick="this.closest('div').remove()" 
+                    class="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="x" size="12"></i>
+                </button>`;
+            grid.appendChild(div);
+            if (window.lucide) lucide.createIcons();
+        };
+        reader.readAsDataURL(file);
+    });
+    input.value = '';
+}
+
+window.removeBlock = function(btn) { 
+    btn.closest('.editor-block').remove(); 
+}
+
+// [초기화]
+renderCalendar();
+generateTimeline();
+if (window.lucide) lucide.createIcons();
+</script>
+{% endblock %}
+
