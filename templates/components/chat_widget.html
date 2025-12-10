@@ -88,6 +88,13 @@
         const chatInput = document.getElementById('chat-input');
         const sendBtn = document.getElementById('send-btn');
 
+        // Session Management
+        let sessionId = localStorage.getItem('chat_session_id');
+        if (!sessionId) {
+            sessionId = 'guest-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now().toString(36);
+            localStorage.setItem('chat_session_id', sessionId);
+        }
+
         function toggleChat() {
             const isHidden = chatWindow.classList.contains('hidden');
             if (isHidden) {
@@ -172,7 +179,12 @@
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
+                    body: JSON.stringify({
+                        message: text,
+                        session_id: sessionId,
+                        user_type: 'guest',
+                        user_name: 'Guest User'
+                    })
                 });
 
                 if (!response.ok) {

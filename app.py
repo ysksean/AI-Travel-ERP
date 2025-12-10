@@ -1,6 +1,17 @@
 import sys
 import os
 
+# Get current directory (.../travel_web)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Go up one level, then into 'travel/flask_web' directory
+erp_path = os.path.join(os.path.dirname(current_dir), 'travel', 'flask_web')
+
+# Add to sys.path at the beginning for highest priority
+if erp_path not in sys.path:
+    sys.path.insert(0, erp_path)
+    print(f"Added ERP path: {erp_path}")
+
 try:
     import google.generativeai as genai
 except ImportError:
@@ -12,6 +23,8 @@ from services.db_connect import SessionLocal
 from services.models import Product, ProductPrice
 from sqlalchemy import desc, or_, func, and_
 import re
+import pymysql
+
 
 # Manual .env loader since python-dotenv might be missing
 def load_env_manual(filepath):
@@ -25,7 +38,8 @@ def load_env_manual(filepath):
                     if '=' in line:
                         key, value = line.split('=', 1)
                         value = value.strip()
-                        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                        if (value.startswith('"') and value.endswith('"')) or (
+                                value.startswith("'") and value.endswith("'")):
                             value = value[1:-1]
                         os.environ[key.strip()] = value
             print(f"Successfully loaded .env from {filepath}")
@@ -34,18 +48,51 @@ def load_env_manual(filepath):
     except Exception as e:
         print(f"Error loading .env file: {e}")
 
+
 # Load environment variables
 load_env_manual(os.path.join(os.path.dirname(__file__), '.env'))
 
-# Add sibling directory to sys.path to import from travel/
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'travel', 'flask_web')))
-
 try:
     from services.rag_service import rag_engine
+
     print("Successfully imported rag_engine")
 except ImportError as e:
     print(f"Error importing rag_engine: {e}")
     rag_engine = None
+
+
+def get_db_connection():
+    return pymysql.connect(
+        host=os.getenv('DB_HOST', 'localhost'),
+        user=os.getenv('DB_USER', 'root'),
+        password=os.getenv('DB_PASSWORD', ''),
+        database=os.getenv('DB_NAME', 'travel_erp'),
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
+def init_db():
+    """Start-up: Create chat_logs table if not exists"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            sql = """
+            CREATE TABLE IF NOT EXISTS chat_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                session_id VARCHAR(255) NOT NULL,
+                user_type VARCHAR(20) DEFAULT 'guest',
+                user_name VARCHAR(100),
+                sender VARCHAR(50) NOT NULL,
+                message TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+            cursor.execute(sql)
+        conn.commit()
+        conn.close()
+        print("✅  Chat logs table checked/created.")
+    except Exception as e:
+        print(f"⚠️  DB Init Error: {e}")
 
 app = Flask(__name__)
 
@@ -203,12 +250,12 @@ mock_data = {
         "keywords": ["여유있는 힐링, 일본", "동남아의 지상낙원료", "여행 LIVE", "생생한 정보"],
         "bg_image": "https://images.unsplash.com/photo-1537996194471-e657df975ab4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
         "card": {
-             "title": "튀르키예(터키) 일주 8~10일 #가성비 여행 #터키국내선...",
-             "desc": "전일정 5성급호텔 숙박, 밸리댄스 포함, 사프란볼루 등 관광 포함, 알차게 다녀올 수 있는 상품입니다.",
-             "original_price": "2,000,000",
-             "price": "1,780,000",
-             "discount": "11%",
-             "image": "https://images.unsplash.com/photo-1527838832700-5059252407fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            "title": "튀르키예(터키) 일주 8~10일 #가성비 여행 #터키국내선...",
+            "desc": "전일정 5성급호텔 숙박, 밸리댄스 포함, 사프란볼루 등 관광 포함, 알차게 다녀올 수 있는 상품입니다.",
+            "original_price": "2,000,000",
+            "price": "1,780,000",
+            "discount": "11%",
+            "image": "https://images.unsplash.com/photo-1527838832700-5059252407fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
         }
     },
     "products_b": [
@@ -247,6 +294,7 @@ mock_data = {
     ]
 }
 
+
 @app.route('/')
 def index():
     """
@@ -259,7 +307,7 @@ def index():
             products = db.query(Product).filter(
                 Product.status == 'published'
             ).order_by(desc(Product.created_at)).limit(20).all()
-            
+
             # 상품 데이터를 템플릿에 맞는 형식으로 변환
             products_data = []
             for product in products:
@@ -269,13 +317,14 @@ def index():
                     available_prices = [p.price_adult for p in product.prices if p.price_adult is not None]
                     if available_prices:
                         min_price = min(available_prices)
-                
+
                 # 이미지 URL 추출 (details_json 또는 ai_content_json에서)
                 image_url = "https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"  # 기본 이미지
                 if product.details_json and isinstance(product.details_json, dict):
                     if 'images' in product.details_json and product.details_json['images']:
-                        image_url = product.details_json['images'][0] if isinstance(product.details_json['images'], list) else image_url
-                
+                        image_url = product.details_json['images'][0] if isinstance(product.details_json['images'],
+                                                                                    list) else image_url
+
                 product_dict = {
                     'id': product.id,
                     'title': product.product_name,
@@ -285,19 +334,17 @@ def index():
                     'image': image_url,
                     'tags': [f"#{product.country}", f"#{product.city}"] if product.country else [],
                     'country': product.country,
-                    'city': product.city,
-                    'nights': product.nights,
-                    'days': product.days
+                    'city': product.city
                 }
                 products_data.append(product_dict)
-            
+
             # mock_data 구조 유지하면서 실제 상품 데이터 추가
             data = mock_data.copy()
             if products_data:
                 # 실제 상품 데이터로 교체
                 data['products_a'] = products_data[:4]  # 상단 4개
                 data['products_b'] = products_data[4:8] if len(products_data) > 4 else products_data[4:]  # 하단 4개
-            
+
             return render_template('index.html', data=data)
         finally:
             db.close()
@@ -306,6 +353,7 @@ def index():
         print("   Falling back to mock data")
         # DB 연결 실패 시 mock_data 사용
         return render_template('index.html', data=mock_data)
+
 
 @app.route('/products/<int:product_id>')
 def product_detail(product_id):
@@ -316,26 +364,27 @@ def product_detail(product_id):
         db = SessionLocal()
         try:
             product = db.query(Product).filter(Product.id == product_id).first()
-            
+
             if not product:
                 return render_template('404.html', message="상품을 찾을 수 없습니다."), 404
-            
+
             # published 상태가 아니면 404
             if product.status != 'published':
                 return render_template('404.html', message="상품을 찾을 수 없습니다."), 404
-            
+
             # 가격 정보 가져오기
             prices = db.query(ProductPrice).filter(
                 ProductPrice.product_id == product_id,
                 ProductPrice.status == 'available'
             ).order_by(ProductPrice.departure_date).all()
-            
+
             return render_template('product_detail.html', product=product, prices=prices)
         finally:
             db.close()
     except Exception as e:
         print(f"⚠️  Error loading product detail: {e}")
         return render_template('404.html', message="상품 정보를 불러올 수 없습니다."), 500
+
 
 def parse_query_intent(query_text):
     """
@@ -349,12 +398,12 @@ def parse_query_intent(query_text):
         'location_keywords': [],
         'find_cheapest': False  # "가장 싼", "최저가" 같은 요청 감지
     }
-    
+
     # "가장 싼", "최저가", "제일 저렴한" 같은 키워드 감지
     cheapest_keywords = ['가장 싼', '가장 저렴한', '최저가', '제일 싼', '제일 저렴한', '싼', '저렴한']
     if any(keyword in query_text for keyword in cheapest_keywords):
         intent['find_cheapest'] = True
-    
+
     # 1. 박/일 수 추출 (예: "3박 4일", "3박", "4일")
     # 패턴: 숫자 + "박" + (선택적) 숫자 + "일"
     night_day_pattern = r'(\d+)\s*박(?:\s*(\d+)\s*일)?'
@@ -366,20 +415,20 @@ def parse_query_intent(query_text):
         else:
             # "3박"만 있으면 days는 nights+1로 추정
             intent['days'] = intent['nights'] + 1
-    
+
     # 2. 가격 범위 추출 (예: "100만원 이하", "100만원 미만", "100만원")
     price_patterns = [
         (r'(\d+)\s*만\s*원\s*(?:이하|미만|이내)', lambda m: int(m.group(1)) * 10000),
         (r'(\d+)\s*만\s*원', lambda m: int(m.group(1)) * 10000),
         (r'(\d+)\s*원\s*(?:이하|미만|이내)', lambda m: int(m.group(1))),
     ]
-    
+
     for pattern, converter in price_patterns:
         match = re.search(pattern, query_text)
         if match:
             intent['max_price'] = converter(match)
             break
-    
+
     # 3. 위치 키워드 추출 (일반적인 여행지명)
     location_keywords = []
     common_locations = [
@@ -398,19 +447,19 @@ def parse_query_intent(query_text):
         '로마', '밀라노', '피렌체', '베네치아',
         '파리', '런던', '바르셀로나', '마드리드'
     ]
-    
+
     for loc in common_locations:
         if loc in query_text:
             location_keywords.append(loc)
-    
+
     # 일반 키워드도 추가 (명확한 위치가 아닌 경우)
     if not location_keywords:
         # 한글 단어 추출 (2글자 이상)
         korean_words = re.findall(r'[가-힣]{2,}', query_text)
         location_keywords = [w for w in korean_words if len(w) >= 2]
-    
+
     intent['location_keywords'] = location_keywords
-    
+
     return intent
 
 
@@ -426,20 +475,20 @@ def search_products_from_db(query_text):
             # 1. 자연어 의도 파싱
             intent = parse_query_intent(query_text)
             print(f"🔍 Parsed Intent: {intent}")
-            
+
             # 2. "가장 싼 출발일" 요청인 경우 특별 처리
             if intent['find_cheapest'] and (intent['nights'] is not None or intent['days'] is not None):
                 return find_cheapest_departure_date(db, intent)
-            
+
             # 3. 기본 쿼리: published 상태인 상품만
             query = db.query(Product).filter(Product.status == 'published')
-            
+
             # 4. 박/일 수 필터링 (정확한 매칭)
             if intent['nights'] is not None:
                 query = query.filter(Product.nights == intent['nights'])
             if intent['days'] is not None:
                 query = query.filter(Product.days == intent['days'])
-            
+
             # 5. 위치 필터링 (상품명, 국가, 도시에서 검색)
             location_conditions = []
             if intent['location_keywords']:
@@ -448,21 +497,21 @@ def search_products_from_db(query_text):
                     location_conditions.append(Product.product_name.like(keyword_like))
                     location_conditions.append(Product.country.like(keyword_like))
                     location_conditions.append(Product.city.like(keyword_like))
-            
+
             # 위치 조건이 있으면 적용, 없으면 전체 검색
             if location_conditions:
                 query = query.filter(or_(*location_conditions))
-            
+
             # 6. 상품 조회 (최대 10개)
             products = query.limit(10).all()
-            
+
             # 7. 가격 필터링 (ProductPrice와 조인하여 필터링)
             filtered_products = []
             for product in products:
                 # ProductPrice에서 최저 가격 찾기
                 if product.prices:
                     available_prices = [
-                        (p, float(p.price_adult)) for p in product.prices 
+                        (p, float(p.price_adult)) for p in product.prices
                         if p.price_adult is not None and p.status == 'available'
                     ]
                     if available_prices:
@@ -475,17 +524,17 @@ def search_products_from_db(query_text):
                     # 가격 정보가 없어도 포함 (가격 필터가 없으면)
                     if intent['max_price'] is None:
                         filtered_products.append((product, None, None))
-            
+
             # 8. "가장 싼" 요청이면 가격순 정렬
             if intent['find_cheapest']:
                 filtered_products.sort(key=lambda x: x[1] if x[1] is not None else float('inf'))
-            
+
             # 최대 5개만 반환
             filtered_products = filtered_products[:5]
-            
+
             if not filtered_products:
                 return ""
-            
+
             # 9. 상품 정보를 텍스트로 변환
             product_texts = []
             for product, min_price, cheapest_price_obj in filtered_products:
@@ -499,7 +548,7 @@ def search_products_from_db(query_text):
                         product_info += f", 기간: {product.nights}박 {product.days}일"
                     else:
                         product_info += f", 기간: {product.nights}박"
-                
+
                 # 가격 정보 (price_adult 사용)
                 if min_price is not None:
                     # 최저가 출발일 정보 포함
@@ -508,19 +557,19 @@ def search_products_from_db(query_text):
                         product_info += f", 최저가 출발일: {departure_str}, 가격: {int(min_price):,}원"
                     else:
                         product_info += f", 성인 가격: {int(min_price):,}원"
-                    
+
                     # 모든 가격 옵션도 포함 (선택적)
                     price_options = []
                     for price in product.prices:
                         if price.price_adult is not None and price.status == 'available':
                             date_str = price.departure_date.strftime('%Y-%m-%d') if price.departure_date else ''
                             price_options.append(f"{date_str} {int(float(price.price_adult)):,}원")
-                    
+
                     if len(price_options) > 1:
                         product_info += f" (출발일별 가격: {', '.join(price_options[:5])})"
                 else:
                     product_info += ", 가격: 문의"
-                
+
                 # 상세 정보 추가
                 if product.details_json and isinstance(product.details_json, dict):
                     if 'inclusions' in product.details_json and product.details_json['inclusions']:
@@ -529,9 +578,9 @@ def search_products_from_db(query_text):
                             product_info += f", 포함사항: {', '.join(inc[:3])}"
                         elif isinstance(inc, str):
                             product_info += f", 포함사항: {inc[:100]}"
-                
+
                 product_texts.append(product_info)
-            
+
             return "\n".join(product_texts)
         finally:
             db.close()
@@ -556,13 +605,13 @@ def find_cheapest_departure_date(db, intent):
             ProductPrice.status == 'available',
             ProductPrice.price_adult.isnot(None)
         )
-        
+
         # 박/일 수 필터링
         if intent['nights'] is not None:
             query = query.filter(Product.nights == intent['nights'])
         if intent['days'] is not None:
             query = query.filter(Product.days == intent['days'])
-        
+
         # 위치 필터링
         if intent['location_keywords']:
             location_conditions = []
@@ -573,26 +622,26 @@ def find_cheapest_departure_date(db, intent):
                 location_conditions.append(Product.city.like(keyword_like))
             if location_conditions:
                 query = query.filter(or_(*location_conditions))
-        
+
         # 가격 필터링
         if intent['max_price'] is not None:
             query = query.filter(ProductPrice.price_adult <= intent['max_price'])
-        
+
         # 모든 결과 가져오기
         results = query.all()
-        
+
         if not results:
             return ""
-        
+
         # 가격순 정렬하여 최저가 찾기
         results.sort(key=lambda x: float(x[0].price_adult))
-        
+
         # 최저가 상위 5개 반환
         product_texts = []
         for price_obj, product in results[:5]:
             price_value = float(price_obj.price_adult)
             departure_str = price_obj.departure_date.strftime('%Y년 %m월 %d일') if price_obj.departure_date else '날짜 미정'
-            
+
             product_info = f"상품명: {product.product_name}"
             if product.country:
                 product_info += f", 국가: {product.country}"
@@ -603,15 +652,15 @@ def find_cheapest_departure_date(db, intent):
                     product_info += f", 기간: {product.nights}박 {product.days}일"
                 else:
                     product_info += f", 기간: {product.nights}박"
-            
+
             product_info += f", 출발일: {departure_str}, 가격: {int(price_value):,}원"
-            
+
             # 그룹 사이즈 정보
             if price_obj.group_size:
                 product_info += f" ({price_obj.group_size}인 기준)"
-            
+
             product_texts.append(product_info)
-        
+
         return "\n".join(product_texts)
     except Exception as e:
         print(f"⚠️  Error finding cheapest departure date: {e}")
@@ -619,12 +668,17 @@ def find_cheapest_departure_date(db, intent):
         traceback.print_exc()
         return ""
 
+
 @app.route('/chat', methods=['POST'])
 def chat():
     print("Chat endpoint called")
     data = request.json
     user_message = data.get('message')
-    print(f"User message: {user_message}")
+    session_id = data.get('session_id')
+    user_type = data.get('user_type', 'guest')
+    user_name = data.get('user_name', 'Guest')
+    
+    print(f"User message: {user_message}, Session: {session_id}")
 
     if not user_message:
         return jsonify({'reply': '메시지를 입력해주세요.'}), 400
@@ -633,7 +687,7 @@ def chat():
         # 1. DB에서 상품 검색
         db_products = search_products_from_db(user_message)
         print(f"DB 검색 결과: {db_products[:200] if db_products else 'None'}")
-        
+
         # 2. RAG Retrieval
         context = ""
         if rag_engine:
@@ -642,14 +696,14 @@ def chat():
             print(f"Retrieved context: {context}")
         else:
             print("RAG engine not available")
-        
+
         # 3. DB 상품 정보와 RAG 컨텍스트 결합
         full_context = ""
         if db_products:
             full_context += f"[현재 보유 상품 정보]\n{db_products}\n\n"
         if context:
             full_context += f"[추가 정보]\n{context}"
-        
+
         # 4. Gemini Generation
         if genai and os.getenv('GOOGLE_API_KEY'):
             model_name = os.getenv('MODEL_NAME', 'gemini-2.5-flash-lite')
@@ -662,27 +716,50 @@ def chat():
             prompt = f"""
             You are a helpful travel agent for 'AI Hanatour'.
             Answer the user's question using the product information provided below.
-            
+
             IMPORTANT RULES:
             1. If product information is provided in the Context, you MUST use it to answer the question.
             2. If the user asks for "가장 싼" (cheapest) or "최저가" (lowest price), find the product with the lowest price from the context.
             3. If the user asks about specific dates or departure dates, use the departure date information from the context.
             4. Always provide specific product names, prices, and departure dates when available in the context.
             5. If no product information is available, politely inform the user that you couldn't find matching products.
-            
+
             Context (Product Information from Database):
             {full_context if full_context else "No product information found in database."}
-            
+
             User Question:
             {user_message}
-            
+
             Answer in Korean, providing specific details from the context:
             """
-            
+
+            # Save User Message to DB
+            try:
+                conn = get_db_connection()
+                with conn.cursor() as cursor:
+                    sql = "INSERT INTO chat_logs (session_id, user_type, user_name, sender, message) VALUES (%s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (session_id, user_type, user_name, 'user', user_message))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Failed to log user message: {e}")
+
             print("Generating response with Gemini...")
             response = model.generate_content(prompt)
             reply = response.text
             print(f"Gemini reply: {reply}")
+
+            # Save Bot Response to DB
+            try:
+                conn = get_db_connection()
+                with conn.cursor() as cursor:
+                    sql = "INSERT INTO chat_logs (session_id, user_type, user_name, sender, message) VALUES (%s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (session_id, user_type, user_name, 'bot', reply))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Failed to log bot message: {e}")
+
             return jsonify({'reply': reply})
         else:
             msg = '죄송합니다. 현재 AI 답변 서비스를 사용할 수 없습니다.'
@@ -692,6 +769,18 @@ def chat():
                 msg += f'\n\n[검색된 상품 정보]\n{db_products}'
             if context:
                 msg += f'\n\n[추가 정보]\n{context}'
+            
+            # Save Fallback Response to DB
+            try:
+                conn = get_db_connection()
+                with conn.cursor() as cursor:
+                    sql = "INSERT INTO chat_logs (session_id, user_type, user_name, sender, message) VALUES (%s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (session_id, user_type, user_name, 'bot', msg))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Failed to log bot message: {e}")
+
             return jsonify({'reply': msg}), 200
 
     except Exception as e:
@@ -700,5 +789,7 @@ def chat():
         traceback.print_exc()
         return jsonify({'reply': '죄송합니다. 현재 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'}), 500
 
+
 if __name__ == '__main__':
+    init_db()
     app.run(host='0.0.0.0', port=7879, debug=True)
