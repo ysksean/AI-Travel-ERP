@@ -1895,108 +1895,41 @@ window.generateAIContent = function() {
 }
 
 window.submitForm = async function(status) {
-    console.log(`\n💾 ========== Submit Form Called: status=${status} ==========`);
-    alert(`submitForm 함수 호출됨: ${status}`); // 임시 디버깅용
+    console.log(`💾 Submit Form Called: status=${status}`);
     
     try {
-        // 1. 기본 정보 수집
-        const productNameInput = document.querySelector('input[placeholder*="상품명"]') || 
-                                 document.querySelector('input[placeholder*="매력적인"]');
-        const productName = productNameInput?.value || '';
-        
-        const productTypeRadio = document.querySelector('input[name="product_type"]:checked');
-        const productType = productTypeRadio?.value || 'overseas';
-        
-        const locationInput = document.querySelector('input[placeholder*="베트남 다낭"]') || 
-                              document.querySelector('input[placeholder*="예: 베트남"]');
-        const locationValue = locationInput?.value || '';
-        const [country, ...cityParts] = locationValue.split(' ');
-        const city = cityParts.join(' ') || '';
-        
-        const departurePort = document.getElementById('departureCity')?.value || '';
-        const nights = parseInt(document.getElementById('nightsInput')?.value) || null;
-        const days = parseInt(document.getElementById('daysInput')?.value) || null;
-        
-        console.log('📋 Basic Info:');
-        console.log(`   Product Name: "${productName}"`);
-        console.log(`   Product Type: ${productType}`);
-        console.log(`   Country: "${country}", City: "${city}"`);
-        console.log(`   Departure Port: "${departurePort}"`);
-        console.log(`   Nights: ${nights}, Days: ${days}`);
-        
-        // 2. 상세 정보 수집
-        const inclusionsTextarea = document.querySelector('textarea[placeholder*="왕복 항공권"]');
-        const exclusionsTextarea = document.querySelector('textarea[placeholder*="가이드/기사 경비"]');
-        const specialNotesTextarea = document.querySelector('textarea[placeholder*="쇼핑 3회"]');
-        
-        const details = {
-            inclusions: inclusionsTextarea?.value?.split('\n').filter(l => l.trim()) || [],
-            exclusions: exclusionsTextarea?.value?.split('\n').filter(l => l.trim()) || [],
-            special_notes: specialNotesTextarea?.value?.split('\n').filter(l => l.trim()) || []
-        };
-        
-        console.log('📋 Details:');
-        console.log(`   Inclusions: ${details.inclusions.length} items`);
-        console.log(`   Exclusions: ${details.exclusions.length} items`);
-        console.log(`   Special Notes: ${details.special_notes.length} items`);
-        
-        // 3. 호텔/골프장/일정 수집
-        const hotels = collectHotels();
-        const golfCourses = collectGolfCourses();
-        const itineraryOptions = window.allItineraryOptions || [];
-        
-        console.log('📋 Additional Data:');
-        console.log(`   Hotels: ${hotels.length} items`);
-        console.log(`   Golf Courses: ${golfCourses.length} items`);
-        console.log(`   Itinerary Options: ${itineraryOptions.length} items`);
-        
-        // 4. 항공 정보
-        const flightInput = document.querySelector('input[placeholder*="대한항공 KE463"]') || 
-                           document.querySelector('input[placeholder*="예: 대한항공"]');
-        const flightInfo = {
-            airline: flightInput?.value || ''
-        };
-        
-        // 5. AI 콘텐츠
-        const aiContent = {
-            body_text: collectEditorContent()
-        };
-        
-        // 6. 가격 정보
-        const priceInfo = window.currentPriceData || [];
-        console.log(`   Price Info: ${priceInfo.length} items`);
-        if (priceInfo.length > 0) {
-            console.log(`   First Price:`, priceInfo[0]);
-        }
-        
-        // 필수 필드 검증
-        if (!productName || productName.trim() === '') {
-            alert('❌ 상품명을 입력해주세요.');
-            console.error('❌ Validation failed: product_name is empty');
-            return;
-        }
-        
-        // 폼 데이터 구성
+        // 폼 데이터 수집
         const formData = {
-            product_name: productName.trim(),
-            product_type: productType,
-            country: country || '',
-            city: city || '',
-            departure_port: departurePort,
-            nights: nights,
-            days: days,
+            product_name: document.querySelector('input[placeholder*="상품명"]')?.value || '',
+            product_type: document.querySelector('input[name="product_type"]:checked')?.value || 'overseas',
+            country: document.querySelector('input[placeholder*="베트남 다낭"]')?.value?.split(' ')[0] || '',
+            city: document.querySelector('input[placeholder*="베트남 다낭"]')?.value?.split(' ').slice(1).join(' ') || '',
+            departure_port: document.getElementById('departureCity')?.value || '',
+            nights: parseInt(document.getElementById('nightsInput')?.value) || null,
+            days: parseInt(document.getElementById('daysInput')?.value) || null,
             status: status,
-            details: details,
-            hotels: hotels,
-            golf_courses: golfCourses,
-            itinerary_options: itineraryOptions,
-            flight_info: flightInfo,
-            ai_content: aiContent,
-            price_info: priceInfo
+            
+            // JSON 필드들
+            details: {
+                inclusions: document.querySelector('textarea[placeholder*="왕복 항공권"]')?.value?.split('\n').filter(l => l.trim()) || [],
+                exclusions: document.querySelector('textarea[placeholder*="가이드/기사 경비"]')?.value?.split('\n').filter(l => l.trim()) || [],
+                special_notes: document.querySelector('textarea[placeholder*="쇼핑 3회"]')?.value?.split('\n').filter(l => l.trim()) || []
+            },
+            
+            hotels: collectHotels(),
+            golf_courses: collectGolfCourses(),
+            itinerary_options: window.allItineraryOptions || [],
+            flight_info: {
+                airline: document.querySelector('input[placeholder*="대한항공 KE463"]')?.value || ''
+            },
+            ai_content: {
+                body_text: collectEditorContent()
+            },
+            
+            price_info: window.currentPriceData || []
         };
         
-        console.log('📤 Final Form Data:', JSON.stringify(formData, null, 2));
-        console.log('📤 Sending to /product/save...');
+        console.log('📤 Sending data to server:', formData);
         
         const response = await fetch('/product/save', {
             method: 'POST',
@@ -2006,27 +1939,19 @@ window.submitForm = async function(status) {
             body: JSON.stringify(formData)
         });
         
-        console.log(`📥 Response Status: ${response.status} ${response.statusText}`);
-        
         const result = await response.json();
-        console.log('📥 Server Response:', result);
+        console.log('📥 Server response:', result);
         
         if (response.ok && result.status === 'success') {
             alert(`✅ 상품이 ${status === 'draft' ? '임시저장' : '게시'} 되었습니다!\n상품 ID: ${result.product_id}`);
-            console.log('✅ Save successful!');
         } else {
-            const errorMsg = result.message || result.error || 'Unknown error';
-            alert(`❌ 저장 실패: ${errorMsg}`);
-            console.error('❌ Save failed:', errorMsg);
+            alert(`❌ 저장 실패: ${result.message || 'Unknown error'}`);
         }
         
     } catch (error) {
         console.error('❌ Submit error:', error);
-        console.error('Error stack:', error.stack);
         alert(`❌ 저장 중 오류가 발생했습니다: ${error.message}`);
     }
-    
-    console.log('💾 ========== Submit Form End ==========\n');
 }
 
 // 호텔 정보 수집 헬퍼 함수

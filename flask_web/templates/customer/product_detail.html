@@ -1,0 +1,83 @@
+{% extends "customer/base.html" %}
+
+{% block title %}{{ product.product_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/products" class="text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+        <i data-lucide="arrow-left" size="16"></i>
+        목록으로
+    </a>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+    <h1 class="text-4xl font-bold text-slate-800 mb-4">{{ product.product_name }}</h1>
+    
+    <div class="flex items-center gap-4 text-slate-600 mb-6">
+        <span><i data-lucide="map-pin" class="inline" size="16"></i> {{ product.country }} {{ product.city }}</span>
+        {% if product.nights %}
+        <span>{{ product.nights }}박</span>
+        {% endif %}
+        {% if product.days %}
+        <span>{{ product.days }}일</span>
+        {% endif %}
+    </div>
+    
+    {% if product.ai_content_json and product.ai_content_json.body_text %}
+    <div class="prose max-w-none mb-8">
+        <h2 class="text-2xl font-bold mb-4">상품 소개</h2>
+        <p class="whitespace-pre-line">{{ product.ai_content_json.body_text }}</p>
+    </div>
+    {% endif %}
+    
+    {% if prices %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-4">가격 정보</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-slate-50">
+                        <th class="border border-slate-200 px-4 py-2 text-left">출발일</th>
+                        <th class="border border-slate-200 px-4 py-2 text-left">박수</th>
+                        <th class="border border-slate-200 px-4 py-2 text-left">일수</th>
+                        <th class="border border-slate-200 px-4 py-2 text-right">성인 가격</th>
+                        <th class="border border-slate-200 px-4 py-2 text-left">상태</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for price in prices %}
+                    <tr>
+                        <td class="border border-slate-200 px-4 py-2">{{ price.departure_date.strftime('%Y-%m-%d') if price.departure_date else '-' }}</td>
+                        <td class="border border-slate-200 px-4 py-2">{{ price.night_count or '-' }}</td>
+                        <td class="border border-slate-200 px-4 py-2">{{ price.day_count or '-' }}</td>
+                        <td class="border border-slate-200 px-4 py-2 text-right">
+                            {% if price.price_adult %}
+                            {{ "{:,}".format(price.price_adult) }}원
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="border border-slate-200 px-4 py-2">
+                            <span class="px-2 py-1 rounded text-xs {% if price.status == 'available' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                                {{ price.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="flex gap-4">
+        <button class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors">
+            예약하기
+        </button>
+        <button class="bg-slate-100 text-slate-700 px-6 py-3 rounded-lg hover:bg-slate-200 transition-colors">
+            문의하기
+        </button>
+    </div>
+</div>
+{% endblock %}
+

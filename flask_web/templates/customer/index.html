@@ -1,0 +1,43 @@
+{% extends "customer/base.html" %}
+
+{% block title %}메인{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-4xl font-bold text-slate-800 mb-2">인기 여행 상품</h1>
+    <p class="text-slate-600">최신 여행 상품을 만나보세요</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% if products %}
+        {% for product in products %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-2">{{ product.product_name }}</h3>
+                <p class="text-slate-600 mb-4">
+                    <i data-lucide="map-pin" class="inline" size="16"></i>
+                    {{ product.country }} {{ product.city }}
+                </p>
+                <div class="flex items-center gap-4 text-sm text-slate-500 mb-4">
+                    {% if product.nights %}
+                    <span>{{ product.nights }}박</span>
+                    {% endif %}
+                    {% if product.days %}
+                    <span>{{ product.days }}일</span>
+                    {% endif %}
+                </div>
+                <a href="/products/{{ product.id }}" 
+                   class="inline-block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                    상세보기
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-span-full text-center py-12">
+            <p class="text-slate-500">등록된 상품이 없습니다.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}여행 상품{% endblock %} - Travel ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50">
+    <nav class="bg-white shadow-sm border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <a href="/" class="text-2xl font-bold text-indigo-600">Travel ERP</a>
+                <div class="flex items-center gap-4">
+                    <a href="/products" class="text-slate-600 hover:text-indigo-600">상품 목록</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="bg-white border-t border-slate-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 py-8 text-center text-slate-500">
+            <p>&copy; 2025 Travel ERP. All rights reserved.</p>
+        </div>
+    </footer>
+    
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
+
