@@ -8,6 +8,10 @@ except ImportError:
     print("Warning: google-generativeai module not found.")
 
 from flask import Flask, render_template, request, jsonify
+from services.db_connect import SessionLocal
+from services.models import Product, ProductPrice
+from sqlalchemy import desc, or_, func, and_
+import re
 
 # Manual .env loader since python-dotenv might be missing
 def load_env_manual(filepath):
@@ -245,7 +249,375 @@ mock_data = {
 
 @app.route('/')
 def index():
-    return render_template('index.html', data=mock_data)
+    """
+    메인 페이지 - DB에서 published 상태의 상품을 조회하여 표시
+    """
+    try:
+        db = SessionLocal()
+        try:
+            # published 상태인 상품만 조회 (고객용 사이트는 읽기 전용)
+            products = db.query(Product).filter(
+                Product.status == 'published'
+            ).order_by(desc(Product.created_at)).limit(20).all()
+            
+            # 상품 데이터를 템플릿에 맞는 형식으로 변환
+            products_data = []
+            for product in products:
+                # 최저 가격 찾기
+                min_price = None
+                if product.prices:
+                    available_prices = [p.price_adult for p in product.prices if p.price_adult is not None]
+                    if available_prices:
+                        min_price = min(available_prices)
+                
+                # 이미지 URL 추출 (details_json 또는 ai_content_json에서)
+                image_url = "https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"  # 기본 이미지
+                if product.details_json and isinstance(product.details_json, dict):
+                    if 'images' in product.details_json and product.details_json['images']:
+                        image_url = product.details_json['images'][0] if isinstance(product.details_json['images'], list) else image_url
+                
+                product_dict = {
+                    'id': product.id,
+                    'title': product.product_name,
+                    'price': f"{int(min_price):,}" if min_price else "문의",
+                    'original_price': None,  # 필요시 추가
+                    'discount': None,  # 필요시 추가
+                    'image': image_url,
+                    'tags': [f"#{product.country}", f"#{product.city}"] if product.country else [],
+                    'country': product.country,
+                    'city': product.city,
+                    'nights': product.nights,
+                    'days': product.days
+                }
+                products_data.append(product_dict)
+            
+            # mock_data 구조 유지하면서 실제 상품 데이터 추가
+            data = mock_data.copy()
+            if products_data:
+                # 실제 상품 데이터로 교체
+                data['products_a'] = products_data[:4]  # 상단 4개
+                data['products_b'] = products_data[4:8] if len(products_data) > 4 else products_data[4:]  # 하단 4개
+            
+            return render_template('index.html', data=data)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠️  Error loading products from database: {e}")
+        print("   Falling back to mock data")
+        # DB 연결 실패 시 mock_data 사용
+        return render_template('index.html', data=mock_data)
+
+@app.route('/products/<int:product_id>')
+def product_detail(product_id):
+    """
+    상품 상세 페이지 - DB에서 상품 정보 조회
+    """
+    try:
+        db = SessionLocal()
+        try:
+            product = db.query(Product).filter(Product.id == product_id).first()
+            
+            if not product:
+                return render_template('404.html', message="상품을 찾을 수 없습니다."), 404
+            
+            # published 상태가 아니면 404
+            if product.status != 'published':
+                return render_template('404.html', message="상품을 찾을 수 없습니다."), 404
+            
+            # 가격 정보 가져오기
+            prices = db.query(ProductPrice).filter(
+                ProductPrice.product_id == product_id,
+                ProductPrice.status == 'available'
+            ).order_by(ProductPrice.departure_date).all()
+            
+            return render_template('product_detail.html', product=product, prices=prices)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠️  Error loading product detail: {e}")
+        return render_template('404.html', message="상품 정보를 불러올 수 없습니다."), 500
+
+def parse_query_intent(query_text):
+    """
+    자연어 질문에서 검색 조건을 추출
+    Returns: dict with 'nights', 'days', 'max_price', 'location_keywords', 'find_cheapest'
+    """
+    intent = {
+        'nights': None,
+        'days': None,
+        'max_price': None,
+        'location_keywords': [],
+        'find_cheapest': False  # "가장 싼", "최저가" 같은 요청 감지
+    }
+    
+    # "가장 싼", "최저가", "제일 저렴한" 같은 키워드 감지
+    cheapest_keywords = ['가장 싼', '가장 저렴한', '최저가', '제일 싼', '제일 저렴한', '싼', '저렴한']
+    if any(keyword in query_text for keyword in cheapest_keywords):
+        intent['find_cheapest'] = True
+    
+    # 1. 박/일 수 추출 (예: "3박 4일", "3박", "4일")
+    # 패턴: 숫자 + "박" + (선택적) 숫자 + "일"
+    night_day_pattern = r'(\d+)\s*박(?:\s*(\d+)\s*일)?'
+    match = re.search(night_day_pattern, query_text)
+    if match:
+        intent['nights'] = int(match.group(1))
+        if match.group(2):
+            intent['days'] = int(match.group(2))
+        else:
+            # "3박"만 있으면 days는 nights+1로 추정
+            intent['days'] = intent['nights'] + 1
+    
+    # 2. 가격 범위 추출 (예: "100만원 이하", "100만원 미만", "100만원")
+    price_patterns = [
+        (r'(\d+)\s*만\s*원\s*(?:이하|미만|이내)', lambda m: int(m.group(1)) * 10000),
+        (r'(\d+)\s*만\s*원', lambda m: int(m.group(1)) * 10000),
+        (r'(\d+)\s*원\s*(?:이하|미만|이내)', lambda m: int(m.group(1))),
+    ]
+    
+    for pattern, converter in price_patterns:
+        match = re.search(pattern, query_text)
+        if match:
+            intent['max_price'] = converter(match)
+            break
+    
+    # 3. 위치 키워드 추출 (일반적인 여행지명)
+    location_keywords = []
+    common_locations = [
+        '홋카이도', '도쿄', '오사카', '교토', '후쿠오카', '오키나와', '미야코지마',
+        '제주', '제주도', '부산', '서울',
+        '다낭', '호이안', '하노이', '호치민', '나트랑',
+        '방콕', '푸켓', '치앙마이',
+        '발리', '자카르타',
+        '세부', '보라카이', '마닐라',
+        '코타키나발루', '쿠알라룸푸르', '랑카위',
+        '싱가포르', '홍콩', '마카오',
+        '상하이', '베이징', '하이난',
+        '시드니', '멜버른', '골드코스트',
+        '두바이', '아부다비',
+        '이스탄불', '카파도키아',
+        '로마', '밀라노', '피렌체', '베네치아',
+        '파리', '런던', '바르셀로나', '마드리드'
+    ]
+    
+    for loc in common_locations:
+        if loc in query_text:
+            location_keywords.append(loc)
+    
+    # 일반 키워드도 추가 (명확한 위치가 아닌 경우)
+    if not location_keywords:
+        # 한글 단어 추출 (2글자 이상)
+        korean_words = re.findall(r'[가-힣]{2,}', query_text)
+        location_keywords = [w for w in korean_words if len(w) >= 2]
+    
+    intent['location_keywords'] = location_keywords
+    
+    return intent
+
+
+def search_products_from_db(query_text):
+    """
+    DB에서 상품을 검색하여 텍스트 형식으로 반환
+    자연어 파싱을 통해 정확한 필터링 수행
+    "가장 싼 출발일" 요청 시 ProductPrice에서 직접 최저가 찾기
+    """
+    try:
+        db = SessionLocal()
+        try:
+            # 1. 자연어 의도 파싱
+            intent = parse_query_intent(query_text)
+            print(f"🔍 Parsed Intent: {intent}")
+            
+            # 2. "가장 싼 출발일" 요청인 경우 특별 처리
+            if intent['find_cheapest'] and (intent['nights'] is not None or intent['days'] is not None):
+                return find_cheapest_departure_date(db, intent)
+            
+            # 3. 기본 쿼리: published 상태인 상품만
+            query = db.query(Product).filter(Product.status == 'published')
+            
+            # 4. 박/일 수 필터링 (정확한 매칭)
+            if intent['nights'] is not None:
+                query = query.filter(Product.nights == intent['nights'])
+            if intent['days'] is not None:
+                query = query.filter(Product.days == intent['days'])
+            
+            # 5. 위치 필터링 (상품명, 국가, 도시에서 검색)
+            location_conditions = []
+            if intent['location_keywords']:
+                for keyword in intent['location_keywords']:
+                    keyword_like = f"%{keyword}%"
+                    location_conditions.append(Product.product_name.like(keyword_like))
+                    location_conditions.append(Product.country.like(keyword_like))
+                    location_conditions.append(Product.city.like(keyword_like))
+            
+            # 위치 조건이 있으면 적용, 없으면 전체 검색
+            if location_conditions:
+                query = query.filter(or_(*location_conditions))
+            
+            # 6. 상품 조회 (최대 10개)
+            products = query.limit(10).all()
+            
+            # 7. 가격 필터링 (ProductPrice와 조인하여 필터링)
+            filtered_products = []
+            for product in products:
+                # ProductPrice에서 최저 가격 찾기
+                if product.prices:
+                    available_prices = [
+                        (p, float(p.price_adult)) for p in product.prices 
+                        if p.price_adult is not None and p.status == 'available'
+                    ]
+                    if available_prices:
+                        # 최저가 출발일 찾기
+                        cheapest_price_obj, min_price = min(available_prices, key=lambda x: x[1])
+                        # 가격 필터 적용
+                        if intent['max_price'] is None or min_price <= intent['max_price']:
+                            filtered_products.append((product, min_price, cheapest_price_obj))
+                else:
+                    # 가격 정보가 없어도 포함 (가격 필터가 없으면)
+                    if intent['max_price'] is None:
+                        filtered_products.append((product, None, None))
+            
+            # 8. "가장 싼" 요청이면 가격순 정렬
+            if intent['find_cheapest']:
+                filtered_products.sort(key=lambda x: x[1] if x[1] is not None else float('inf'))
+            
+            # 최대 5개만 반환
+            filtered_products = filtered_products[:5]
+            
+            if not filtered_products:
+                return ""
+            
+            # 9. 상품 정보를 텍스트로 변환
+            product_texts = []
+            for product, min_price, cheapest_price_obj in filtered_products:
+                product_info = f"상품명: {product.product_name}"
+                if product.country:
+                    product_info += f", 국가: {product.country}"
+                if product.city:
+                    product_info += f", 도시: {product.city}"
+                if product.nights:
+                    if product.days:
+                        product_info += f", 기간: {product.nights}박 {product.days}일"
+                    else:
+                        product_info += f", 기간: {product.nights}박"
+                
+                # 가격 정보 (price_adult 사용)
+                if min_price is not None:
+                    # 최저가 출발일 정보 포함
+                    if cheapest_price_obj and cheapest_price_obj.departure_date:
+                        departure_str = cheapest_price_obj.departure_date.strftime('%Y년 %m월 %d일')
+                        product_info += f", 최저가 출발일: {departure_str}, 가격: {int(min_price):,}원"
+                    else:
+                        product_info += f", 성인 가격: {int(min_price):,}원"
+                    
+                    # 모든 가격 옵션도 포함 (선택적)
+                    price_options = []
+                    for price in product.prices:
+                        if price.price_adult is not None and price.status == 'available':
+                            date_str = price.departure_date.strftime('%Y-%m-%d') if price.departure_date else ''
+                            price_options.append(f"{date_str} {int(float(price.price_adult)):,}원")
+                    
+                    if len(price_options) > 1:
+                        product_info += f" (출발일별 가격: {', '.join(price_options[:5])})"
+                else:
+                    product_info += ", 가격: 문의"
+                
+                # 상세 정보 추가
+                if product.details_json and isinstance(product.details_json, dict):
+                    if 'inclusions' in product.details_json and product.details_json['inclusions']:
+                        inc = product.details_json['inclusions']
+                        if isinstance(inc, list):
+                            product_info += f", 포함사항: {', '.join(inc[:3])}"
+                        elif isinstance(inc, str):
+                            product_info += f", 포함사항: {inc[:100]}"
+                
+                product_texts.append(product_info)
+            
+            return "\n".join(product_texts)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠️  Error searching products from DB: {e}")
+        import traceback
+        traceback.print_exc()
+        return ""
+
+
+def find_cheapest_departure_date(db, intent):
+    """
+    특정 기간(nights/days)의 상품 중 가장 싼 출발일을 찾기
+    ProductPrice 테이블에서 직접 조회하여 최저가 찾기
+    """
+    try:
+        # ProductPrice와 Product를 조인하여 조회
+        query = db.query(ProductPrice, Product).join(
+            Product, ProductPrice.product_id == Product.id
+        ).filter(
+            Product.status == 'published',
+            ProductPrice.status == 'available',
+            ProductPrice.price_adult.isnot(None)
+        )
+        
+        # 박/일 수 필터링
+        if intent['nights'] is not None:
+            query = query.filter(Product.nights == intent['nights'])
+        if intent['days'] is not None:
+            query = query.filter(Product.days == intent['days'])
+        
+        # 위치 필터링
+        if intent['location_keywords']:
+            location_conditions = []
+            for keyword in intent['location_keywords']:
+                keyword_like = f"%{keyword}%"
+                location_conditions.append(Product.product_name.like(keyword_like))
+                location_conditions.append(Product.country.like(keyword_like))
+                location_conditions.append(Product.city.like(keyword_like))
+            if location_conditions:
+                query = query.filter(or_(*location_conditions))
+        
+        # 가격 필터링
+        if intent['max_price'] is not None:
+            query = query.filter(ProductPrice.price_adult <= intent['max_price'])
+        
+        # 모든 결과 가져오기
+        results = query.all()
+        
+        if not results:
+            return ""
+        
+        # 가격순 정렬하여 최저가 찾기
+        results.sort(key=lambda x: float(x[0].price_adult))
+        
+        # 최저가 상위 5개 반환
+        product_texts = []
+        for price_obj, product in results[:5]:
+            price_value = float(price_obj.price_adult)
+            departure_str = price_obj.departure_date.strftime('%Y년 %m월 %d일') if price_obj.departure_date else '날짜 미정'
+            
+            product_info = f"상품명: {product.product_name}"
+            if product.country:
+                product_info += f", 국가: {product.country}"
+            if product.city:
+                product_info += f", 도시: {product.city}"
+            if product.nights:
+                if product.days:
+                    product_info += f", 기간: {product.nights}박 {product.days}일"
+                else:
+                    product_info += f", 기간: {product.nights}박"
+            
+            product_info += f", 출발일: {departure_str}, 가격: {int(price_value):,}원"
+            
+            # 그룹 사이즈 정보
+            if price_obj.group_size:
+                product_info += f" ({price_obj.group_size}인 기준)"
+            
+            product_texts.append(product_info)
+        
+        return "\n".join(product_texts)
+    except Exception as e:
+        print(f"⚠️  Error finding cheapest departure date: {e}")
+        import traceback
+        traceback.print_exc()
+        return ""
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -258,7 +630,11 @@ def chat():
         return jsonify({'reply': '메시지를 입력해주세요.'}), 400
 
     try:
-        # 1. RAG Retrieval
+        # 1. DB에서 상품 검색
+        db_products = search_products_from_db(user_message)
+        print(f"DB 검색 결과: {db_products[:200] if db_products else 'None'}")
+        
+        # 2. RAG Retrieval
         context = ""
         if rag_engine:
             print("Searching in RAG engine...")
@@ -267,9 +643,16 @@ def chat():
         else:
             print("RAG engine not available")
         
-        # 2. Gemini Generation
+        # 3. DB 상품 정보와 RAG 컨텍스트 결합
+        full_context = ""
+        if db_products:
+            full_context += f"[현재 보유 상품 정보]\n{db_products}\n\n"
+        if context:
+            full_context += f"[추가 정보]\n{context}"
+        
+        # 4. Gemini Generation
         if genai and os.getenv('GOOGLE_API_KEY'):
-            model_name = os.getenv('MODEL_NAME', 'gemini-1.5-flash')
+            model_name = os.getenv('MODEL_NAME', 'gemini-2.5-flash-lite')
             try:
                 model = genai.GenerativeModel(model_name)
                 print(f"Using model: {model_name}")
@@ -278,16 +661,22 @@ def chat():
                 print("Fallback to model: gemini-pro")
             prompt = f"""
             You are a helpful travel agent for 'AI Hanatour'.
-            Use the following context to answer the user's question politely and professionally in Korean.
-            If the context doesn't have the answer, answer based on general travel knowledge but mention you are not sure about specific product details.
+            Answer the user's question using the product information provided below.
             
-            Context:
-            {context}
+            IMPORTANT RULES:
+            1. If product information is provided in the Context, you MUST use it to answer the question.
+            2. If the user asks for "가장 싼" (cheapest) or "최저가" (lowest price), find the product with the lowest price from the context.
+            3. If the user asks about specific dates or departure dates, use the departure date information from the context.
+            4. Always provide specific product names, prices, and departure dates when available in the context.
+            5. If no product information is available, politely inform the user that you couldn't find matching products.
+            
+            Context (Product Information from Database):
+            {full_context if full_context else "No product information found in database."}
             
             User Question:
             {user_message}
             
-            Answer:
+            Answer in Korean, providing specific details from the context:
             """
             
             print("Generating response with Gemini...")
@@ -299,12 +688,16 @@ def chat():
             msg = '죄송합니다. 현재 AI 답변 서비스를 사용할 수 없습니다.'
             if not os.getenv('GOOGLE_API_KEY'):
                 msg += ' (API Key 미설정)'
+            if db_products:
+                msg += f'\n\n[검색된 상품 정보]\n{db_products}'
             if context:
-                 msg += f'\n[검색 결과 참고]\n{context}'
+                msg += f'\n\n[추가 정보]\n{context}'
             return jsonify({'reply': msg}), 200
 
     except Exception as e:
         print(f"Error processing chat: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'reply': '죄송합니다. 현재 서비스에 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'}), 500
 
 if __name__ == '__main__':
