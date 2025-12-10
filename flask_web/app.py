@@ -1,6 +1,35 @@
-from flask import Flask, render_template, jsonify
+import sys
+from flask import Flask, render_template, jsonify, request
 from routes import product, reservation, ops, finance
 import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+# Load environment variables
+load_dotenv()
+
+# Add sibling directory to sys.path to access 'travel' modules
+current_dir = os.path.dirname(os.path.abspath(__file__))
+travel_dir = os.path.abspath(os.path.join(current_dir, '../travel'))
+if travel_dir not in sys.path:
+    sys.path.append(travel_dir)
+
+# Try importing RAG engine
+rag_engine = None
+try:
+    from services.rag_service import rag_engine
+    print("✅ RAG Engine imported successfully.")
+    
+    # Initialize Gemini
+    GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+    if GOOGLE_API_KEY:
+        genai.configure(api_key=GOOGLE_API_KEY)
+    else:
+        print("⚠️  Warning: GOOGLE_API_KEY not found in .env")
+        
+except ImportError as e:
+    print(f"⚠️  Warning: Could not import rag_service: {e}")
+    print("   Chat functionality will be limited to mock responses.")
 
 app = Flask(__name__)
 
@@ -95,6 +124,130 @@ def settings_page():
 def analyze_product_text():
     # ... implementation ...
     return jsonify({}) # Placeholder if needed, or import from routes
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """
+    Handle chat messages using RAG + Gemini with DB Persistence.
+    """
+    from services.models import ChatLog
+    from services.db_connect import SessionLocal
+    
+    data = request.json
+    user_message = data.get('message', '')
+    session_id = data.get('session_id')
+    user_type = data.get('user_type', 'guest')
+    user_name = data.get('user_name', 'Guest')
+    
+    if not user_message:
+        return jsonify({'reply': '메시지를 입력해주세요.'}), 400
+
+    db = SessionLocal()
+    try:
+        # 1. Save User Message
+        user_log = ChatLog(
+            session_id=session_id,
+            user_type=user_type,
+            user_name=user_name,
+            sender='user',
+            message=user_message
+        )
+        db.add(user_log)
+        db.commit()
+
+        # 2. RAG Search (Get Context)
+        context = ""
+        if rag_engine:
+            try:
+                # Assuming rag_engine.search returns a list of strings or similar
+                context_results = rag_engine.search(user_message)
+                if context_results:
+                    context = "\n".join(context_results)
+            except Exception as e:
+                print(f"RAG Search Error: {e}")
+                # Continue without context if RAG fails
+
+        # 3. Generate Response with Gemini
+        reply_text = ""
+        if not os.getenv('GOOGLE_API_KEY'):
+             reply_text = '[Mock] API Key missing. Simulating response: ' + user_message[::-1]
+        else:
+            model = genai.GenerativeModel('gemini-pro')
+            prompt = f"""
+            You are a helpful travel agency assistant. Use the following context to answer the customer's question.
+            If the answer is not in the context, use your general knowledge but mention that you are not sure.
+            
+            Context:
+            {context}
+            
+            Question:
+            {user_message}
+            
+            Answer (in Korean):
+            """
+            response = model.generate_content(prompt)
+            reply_text = response.text
+
+        # 4. Save Bot Response
+        bot_log = ChatLog(
+            session_id=session_id,
+            user_type=user_type,
+            user_name=user_name,
+            sender='bot',
+            message=reply_text
+        )
+        db.add(bot_log)
+        db.commit()
+        
+        return jsonify({'reply': reply_text})
+
+    except Exception as e:
+        print(f"Chat Error: {e}")
+        db.rollback()
+        return jsonify({'reply': '죄송합니다. 오류가 발생했습니다.'}), 500
+    finally:
+        db.close()
+
+@app.route('/api/chat/sessions', methods=['GET'])
+def get_chat_sessions():
+    """
+    Fetch chat sessions grouped by session_id, ordered by latest message.
+    """
+    from services.models import ChatLog
+    from services.db_connect import SessionLocal
+    from sqlalchemy import func, desc
+    
+    db = SessionLocal()
+    try:
+        # Subquery to find the latest message time for each session
+        subquery = db.query(
+            ChatLog.session_id,
+            func.max(ChatLog.created_at).label('max_created_at')
+        ).group_by(ChatLog.session_id).subquery()
+        
+        # Join with main table to get details of the latest message
+        latest_msgs = db.query(ChatLog).join(
+            subquery,
+            (ChatLog.session_id == subquery.c.session_id) & 
+            (ChatLog.created_at == subquery.c.max_created_at)
+        ).order_by(desc(subquery.c.max_created_at)).limit(20).all()
+        
+        sessions = []
+        for msg in latest_msgs:
+            sessions.append({
+                'session_id': msg.session_id,
+                'user_name': msg.user_name,
+                'user_type': msg.user_type,
+                'last_message': msg.message,
+                'updated_at': msg.created_at.strftime('%Y-%m-%d %H:%M')
+            })
+            
+        return jsonify(sessions)
+    except Exception as e:
+        print(f"Session Fetch Error: {e}")
+        return jsonify([])
+    finally:
+        db.close()
 
 if __name__ == '__main__':
     # Ensure models directory exists to avoid startup errors if empty

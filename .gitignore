@@ -27,3 +27,5 @@ flask_web/models/*.pkl
 # Large files
 flask_web/models/
 models/
+
+flask_web/services/db_connect.py
